@@ -1,0 +1,1 @@
+ALTER TABLE "hardware" ADD COLUMN "syncro_asset_id" text;

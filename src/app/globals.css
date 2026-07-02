@@ -1,0 +1,133 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 98%;
+    --foreground: 240 10% 4%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 4%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 4%;
+
+    /* Apple system blue — #0071e3 */
+    --primary: 211 100% 45%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 240 5% 94%;
+    --secondary-foreground: 240 6% 15%;
+
+    --muted: 240 5% 95%;
+    --muted-foreground: 240 4% 50%;
+
+    --accent: 240 5% 94%;
+    --accent-foreground: 240 6% 15%;
+
+    --destructive: 0 84% 58%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 71% 40%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 36 100% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 240 6% 90%;
+    --input: 240 6% 90%;
+    --ring: 211 100% 45%;
+
+    /* 16px — matches Apple's card radius */
+    --radius: 1rem;
+  }
+
+  .dark {
+    --background: 0 0% 0%;
+    --foreground: 0 0% 96%;
+
+    --card: 240 6% 8%;
+    --card-foreground: 0 0% 96%;
+
+    --popover: 240 6% 8%;
+    --popover-foreground: 0 0% 96%;
+
+    --primary: 211 100% 56%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 240 5% 14%;
+    --secondary-foreground: 0 0% 88%;
+
+    --muted: 240 5% 13%;
+    --muted-foreground: 240 4% 54%;
+
+    --accent: 240 5% 14%;
+    --accent-foreground: 0 0% 88%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 36 100% 50%;
+    --warning-foreground: 0 0% 0%;
+
+    --border: 240 5% 16%;
+    --input: 240 5% 16%;
+    --ring: 211 100% 56%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-size: 17px;
+    line-height: 1.6;
+    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  h1 {
+    letter-spacing: -0.04em;
+    line-height: 1.05;
+    font-weight: 700;
+  }
+  h2 {
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    font-weight: 600;
+  }
+  h3, h4 {
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+  }
+}
+
+@layer utilities {
+  /* Apple-style gradient text */
+  .text-gradient {
+    background: linear-gradient(135deg, hsl(var(--foreground)) 0%, hsl(var(--muted-foreground)) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .text-gradient-blue {
+    background: linear-gradient(135deg, hsl(211 100% 45%) 0%, hsl(211 100% 60%) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  /* Apple card shadow */
+  .shadow-card {
+    box-shadow: 0 2px 20px rgba(0, 0, 0, 0.07), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  }
+  .dark .shadow-card {
+    box-shadow: 0 2px 20px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  }
+}

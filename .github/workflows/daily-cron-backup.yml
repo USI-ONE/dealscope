@@ -1,0 +1,60 @@
+# Backup daily cron — hits the /api/cron/daily endpoint on Vercel
+# every day at 02:30 UTC.
+#
+# Why we have this: Vercel Hobby/Pro cron has had reliability gaps and
+# is invisible to us (no per-run logs in the dashboard). GitHub Actions
+# gives us a second runner with first-class log visibility, retry
+# semantics, and a free generous monthly quota — perfect as a safety
+# net for the daily billing-snapshot job.
+#
+# How it stays idempotent: the underlying actions write daily-keyed
+# rows (hardware_heartbeats unique on hardware_id+date; tier snapshots
+# unique on client_id+date). Re-running on the same day no-ops.
+#
+# Setup once: add a repo secret named CRON_BEARER_TOKEN whose value is
+# "Bearer <CRON_SECRET>" — matching the env var on Vercel. Add a repo
+# variable named PROD_BASE_URL (e.g. https://techos-gold.vercel.app)
+# if not the default below.
+
+name: Daily cron backup
+
+on:
+  schedule:
+    # 02:30 UTC daily — 30 minutes after Vercel's 02:00 fire, so we
+    # only act when Vercel skipped. Idempotent if it didn't.
+    - cron: "30 2 * * *"
+  workflow_dispatch: {} # Allow manual "Run workflow" from the Actions tab.
+
+jobs:
+  hit-daily-endpoint:
+    name: POST /api/cron/daily
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Hit cron endpoint
+        env:
+          PROD_BASE_URL: ${{ vars.PROD_BASE_URL || 'https://techos-gold.vercel.app' }}
+          CRON_BEARER_TOKEN: ${{ secrets.CRON_BEARER_TOKEN }}
+        run: |
+          set -euo pipefail
+          URL="${PROD_BASE_URL}/api/cron/daily"
+          echo "Calling ${URL}"
+          # Capture both body + HTTP status; fail the job if non-2xx.
+          HTTP_STATUS=$(curl -sS -o /tmp/body.json -w "%{http_code}" \
+            -H "Authorization: ${CRON_BEARER_TOKEN}" \
+            -H "Accept: application/json" \
+            --max-time 540 \
+            "${URL}")
+          echo "HTTP ${HTTP_STATUS}"
+          echo "Response:"
+          cat /tmp/body.json | head -c 8000
+          echo
+          if [[ "${HTTP_STATUS}" -lt 200 || "${HTTP_STATUS}" -ge 300 ]]; then
+            echo "::error::Cron endpoint returned ${HTTP_STATUS}"
+            exit 1
+          fi
+          # Surface any per-step error messages from the response body
+          # as a GitHub Actions warning so the run log highlights them.
+          if grep -q '"ok":false' /tmp/body.json; then
+            echo "::warning::Cron run reported one or more step failures — inspect response above."
+          fi

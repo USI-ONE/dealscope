@@ -1,0 +1,1 @@
+ALTER TYPE "public"."industry" ADD VALUE 'automotive_collision_repair' BEFORE 'automotive_dealer';

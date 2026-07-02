@@ -1,0 +1,47 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# next
+.next/
+out/
+build/
+dist/
+
+# env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# logs
+*.log
+npm-debug.log*
+
+# editor
+.vscode/
+.idea/
+*.swp
+
+# os
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# coverage
+coverage/
+.nyc_output/
+
+# drizzle
+drizzle/.cache/
+
+# misc
+.turbo/
+.vercel/
+
+.vercel
+.env*.local

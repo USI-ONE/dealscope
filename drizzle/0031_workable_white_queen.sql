@@ -1,0 +1,1 @@
+ALTER TABLE "clients" ADD COLUMN "qb_customer_name" text;
