@@ -5,6 +5,7 @@ import { ChevronLeft } from "lucide-react";
 import { db } from "@/db";
 import { clients, discoveryTopologies, DISCOVERY_STATUS_LABEL } from "@/db/schema";
 import { TopologySvg } from "@/components/discovery/topology-svg";
+import { photoUrl } from "@/lib/discovery/paths";
 import { requireRole } from "@/lib/auth-helpers";
 import { getProject, loadProjectData } from "@/lib/discovery/load";
 import { answerToText, sectionFields, templateIndex } from "@/lib/discovery/templates";
@@ -40,9 +41,9 @@ export default async function DiscoveryReportPage({ params }: { params: Promise<
     list?.length ? (
       <div className="mt-1.5 flex flex-wrap gap-1.5">
         {list.map((p) => (
-          <a key={p.id} href={p.url} target="_blank" rel="noreferrer" className="block">
+          <a key={p.id} href={photoUrl(project.id, p.id)} target="_blank" rel="noreferrer" className="block">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={p.url} alt={p.caption ?? ""} className="h-24 w-32 rounded border border-border object-cover print:h-28 print:w-36" />
+            <img src={photoUrl(project.id, p.id)} alt={p.caption ?? ""} className="h-24 w-32 rounded border border-border object-cover print:h-28 print:w-36" />
             {p.caption && <span className="block max-w-32 truncate text-[10px] text-muted-foreground">{p.caption}</span>}
           </a>
         ))}

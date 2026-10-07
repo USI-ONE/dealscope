@@ -9,6 +9,7 @@ import ExcelJS from "exceljs";
 import { requireRole } from "@/lib/auth-helpers";
 import { getProject, loadProjectData } from "@/lib/discovery/load";
 import { answerToText, recordTitle, templateIndex } from "@/lib/discovery/templates";
+import { photoUrl } from "@/lib/discovery/paths";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -20,8 +21,10 @@ function slugify(input: string) {
 const HEADER_FILL: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F2937" } };
 const TITLE_FONT: Partial<ExcelJS.Font> = { bold: true, size: 14 };
 
-export async function GET(_req: Request, ctxArg: { params: Promise<{ id: string }> }) {
+export async function GET(req: Request, ctxArg: { params: Promise<{ id: string }> }) {
   const { id } = await ctxArg.params;
+  // Photo links go through the signed-in proxy (the blob store is private).
+  const origin = new URL(req.url).origin;
   const ctx = await requireRole("member");
   const project = await getProject(id, ctx.organization.id);
   if (!project) return new Response("Not found", { status: 404 });
@@ -32,8 +35,9 @@ export async function GET(_req: Request, ctxArg: { params: Promise<{ id: string 
   const photosByQuestion = new Map<string, string[]>();
   const photosByRecord = new Map<string, string[]>();
   for (const p of photoRows) {
-    if (p.questionKey) photosByQuestion.set(p.questionKey, [...(photosByQuestion.get(p.questionKey) ?? []), p.url]);
-    if (p.recordId) photosByRecord.set(p.recordId, [...(photosByRecord.get(p.recordId) ?? []), p.url]);
+    const link = `${origin}${photoUrl(project.id, p.id)}`;
+    if (p.questionKey) photosByQuestion.set(p.questionKey, [...(photosByQuestion.get(p.questionKey) ?? []), link]);
+    if (p.recordId) photosByRecord.set(p.recordId, [...(photosByRecord.get(p.recordId) ?? []), link]);
   }
 
   const wb = new ExcelJS.Workbook();
@@ -114,7 +118,7 @@ export async function GET(_req: Request, ctxArg: { params: Promise<{ id: string 
       }
     }
     const row = pws.addRow([idx.sections.get(section)?.title ?? section, what, p.caption ?? "", p.takenAt?.toISOString() ?? ""]);
-    row.getCell(5).value = { text: "Open", hyperlink: p.url };
+    row.getCell(5).value = { text: "Open", hyperlink: `${origin}${photoUrl(project.id, p.id)}` };
     row.getCell(5).font = { color: { argb: "FF2563EB" }, underline: true };
   }
   pws.columns = [{ width: 26 }, { width: 46 }, { width: 40 }, { width: 24 }, { width: 10 }];

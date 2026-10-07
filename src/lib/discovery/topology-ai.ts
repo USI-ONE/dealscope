@@ -7,6 +7,7 @@
  * uncertainties) constrained by structured outputs and re-validated here.
  */
 import Anthropic from "@anthropic-ai/sdk";
+import { get } from "@vercel/blob";
 import { z } from "zod";
 import type { TopologyGraph } from "@/db/schema/discovery";
 import { getAnthropic } from "@/lib/ai/anthropic";
@@ -169,7 +170,26 @@ const SOURCE_GUIDANCE: Record<TopologySourceKind, string> = {
   other: "Interpret the image as a network diagram or network notes.",
 };
 
+type ImageMediaType = "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+const SUPPORTED_MEDIA = new Set<string>(["image/jpeg", "image/png", "image/gif", "image/webp"]);
+
+/**
+ * Photos sit in a private blob store, so Claude can't fetch them by URL —
+ * read them server-side and send base64.
+ */
+async function loadPrivateImage(blobUrl: string): Promise<{ mediaType: ImageMediaType; data: string }> {
+  const res = await get(blobUrl, { access: "private" });
+  if (!res || res.statusCode !== 200) throw new PublicError("A source photo is missing from storage");
+  const mediaType = res.blob.contentType.split(";")[0].trim();
+  if (!SUPPORTED_MEDIA.has(mediaType)) {
+    throw new PublicError(`Unsupported image format (${mediaType}). Re-take the photo in the app or upload a JPEG/PNG screenshot.`);
+  }
+  const data = Buffer.from(await new Response(res.stream).arrayBuffer()).toString("base64");
+  return { mediaType: mediaType as ImageMediaType, data };
+}
+
 export type ExtractInput = {
+  /** Private blob URLs of the source photos. */
   imageUrls: string[];
   sourceKind: TopologySourceKind;
   hint?: string | null;
@@ -180,9 +200,13 @@ export type ExtractInput = {
 export async function extractTopology(input: ExtractInput): Promise<TopologyGraph> {
   const client = getAnthropic();
 
+  const images = await Promise.all(input.imageUrls.map(loadPrivateImage));
   const content: Anthropic.Beta.BetaContentBlockParam[] = [
-    ...input.imageUrls.map(
-      (url) => ({ type: "image", source: { type: "url", url } }) as Anthropic.Beta.BetaImageBlockParam,
+    ...images.map(
+      (img): Anthropic.Beta.BetaImageBlockParam => ({
+        type: "image",
+        source: { type: "base64", media_type: img.mediaType, data: img.data },
+      }),
     ),
     {
       type: "text",

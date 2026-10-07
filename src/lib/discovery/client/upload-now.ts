@@ -15,7 +15,7 @@ export async function uploadPhotoNow(
   const photoId = crypto.randomUUID();
   const ext = img.mimeType === "image/png" ? "png" : "jpg";
   const res = await upload(`${opts.pathPrefix}${photoId}.${ext}`, img.blob, {
-    access: "public",
+    access: "private",
     handleUploadUrl: "/api/discovery/upload",
     clientPayload: JSON.stringify({ projectId: opts.projectId }),
     contentType: img.mimeType,

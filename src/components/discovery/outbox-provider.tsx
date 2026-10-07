@@ -159,7 +159,7 @@ export function DiscoveryOutboxProvider({ children }: { children: React.ReactNod
             setPhotoStatus(p.photoId, "uploading");
             const ext = p.mimeType === "image/png" ? "png" : p.mimeType.startsWith("image/heic") ? "heic" : "jpg";
             const res = await upload(`${p.pathPrefix}${p.photoId}.${ext}`, op.blob, {
-              access: "public",
+              access: "private",
               handleUploadUrl: "/api/discovery/upload",
               clientPayload: JSON.stringify({ projectId: p.projectId }),
               contentType: p.mimeType,

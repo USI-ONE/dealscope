@@ -4,6 +4,7 @@ import { ChevronLeft } from "lucide-react";
 import { requireRole } from "@/lib/auth-helpers";
 import { getProject, loadProjectData } from "@/lib/discovery/load";
 import { photoMode, recordTitle, sectionFields, templateIndex } from "@/lib/discovery/templates";
+import { photoUrl } from "@/lib/discovery/paths";
 import { PhotoHub, type GalleryPhoto, type ShotGroup } from "@/components/discovery/photo-hub";
 
 export const dynamic = "force-dynamic";
@@ -35,7 +36,7 @@ export default async function DiscoveryPhotosPage({ params }: { params: Promise<
     }
     return {
       id: p.id,
-      url: p.url,
+      url: photoUrl(project.id, p.id),
       caption: p.caption,
       takenAt: p.takenAt?.toISOString() ?? null,
       questionKey: p.questionKey,

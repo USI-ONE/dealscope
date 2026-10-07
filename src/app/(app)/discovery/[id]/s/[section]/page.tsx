@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth-helpers";
 import { computeSuggestions, getProject, loadProjectData } from "@/lib/discovery/load";
 import { sectionTables, type AnswerState } from "@/lib/discovery/templates";
+import { photoUrl } from "@/lib/discovery/paths";
 import { SectionView } from "@/components/discovery/section-view";
 import type { RecordRow } from "@/components/discovery/record-list";
 import type { ServerPhoto } from "@/components/discovery/project-context";
@@ -51,7 +52,7 @@ export default async function DiscoverySectionPage({
     .filter((p) => (p.questionKey?.startsWith(prefix) ?? false) || (p.recordId && sectionRecordIds.has(p.recordId)))
     .map((p) => ({
       id: p.id,
-      url: p.url,
+      url: photoUrl(project.id, p.id),
       caption: p.caption,
       takenAt: p.takenAt?.toISOString() ?? null,
       questionKey: p.questionKey,

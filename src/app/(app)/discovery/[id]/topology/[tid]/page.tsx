@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { discoveryPhotos, discoveryTopologies } from "@/db/schema";
 import { requireRole } from "@/lib/auth-helpers";
 import { TopologyEditor } from "@/components/discovery/topology-editor";
+import { photoUrl } from "@/lib/discovery/paths";
 
 export const dynamic = "force-dynamic";
 // Refine / retry run vision extraction inside server actions from this page.
@@ -44,7 +45,7 @@ export default async function TopologyDetailPage({ params }: { params: Promise<{
         status={topo.status}
         error={topo.error}
         graph={topo.graph}
-        sources={sources}
+        sources={sources.map((s) => ({ id: s.id, url: photoUrl(id, s.id) }))}
       />
     </div>
   );
