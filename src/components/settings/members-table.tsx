@@ -43,7 +43,7 @@ export function MembersTable({
 }) {
   return (
     <div className="overflow-x-auto rounded-md border">
-      <table className="w-full text-sm">
+      <table className="table-stack w-full text-sm">
         <thead className="border-b bg-muted/30 text-left text-xs uppercase tracking-wider text-muted-foreground">
           <tr>
             <th className="px-4 py-2 font-medium">User</th>
@@ -131,7 +131,7 @@ function MemberTableRow({
 
   return (
     <tr className="border-b last:border-0 hover:bg-muted/30">
-      <td className="px-4 py-2.5">
+      <td data-label="" className="px-4 py-2.5">
         <div className="font-medium">
           {member.name ?? "—"}
           {isSelf && (
@@ -142,7 +142,7 @@ function MemberTableRow({
         </div>
         <div className="text-xs text-muted-foreground">{member.email}</div>
       </td>
-      <td className="px-4 py-2.5">
+      <td data-label="Role" className="px-4 py-2.5">
         {isOwner && !isSelf ? (
           <select
             value={member.role}
@@ -162,7 +162,7 @@ function MemberTableRow({
           </Badge>
         )}
       </td>
-      <td className="px-4 py-2.5">
+      <td data-label="Finance" className="px-4 py-2.5">
         {isOwner ? (
           <label className="inline-flex items-center gap-2 text-xs">
             <input
@@ -181,7 +181,7 @@ function MemberTableRow({
           "—"
         )}
       </td>
-      <td className="px-4 py-2.5">
+      <td data-label="Status" className="px-4 py-2.5">
         {member.isActive ? (
           <Badge variant="default" className="text-[10px] uppercase">
             Active
@@ -192,7 +192,7 @@ function MemberTableRow({
           </Badge>
         )}
       </td>
-      <td className="px-4 py-2.5 text-xs text-muted-foreground tabular-nums">
+      <td data-label="Joined" className="px-4 py-2.5 text-xs text-muted-foreground tabular-nums">
         {member.joinedAt
           ? new Date(member.joinedAt).toLocaleDateString(undefined, {
               year: "numeric",
@@ -201,7 +201,7 @@ function MemberTableRow({
             })
           : "—"}
       </td>
-      <td className="px-4 py-2.5 text-right">
+      <td data-label="" className="px-4 py-2.5 text-right">
         <div className="flex items-center justify-end gap-1">
           {isOwner && !isSelf && (
             <ResetPasswordButton

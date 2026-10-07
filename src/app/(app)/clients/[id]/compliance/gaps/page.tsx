@@ -87,7 +87,7 @@ export default async function ClientGapsPage({
 
       {groups.length === 0 ? (
         <Card>
-          <CardContent className="p-8 text-center">
+          <CardContent className="p-5 sm:p-8 text-center">
             <p className="text-sm text-muted-foreground">
               No standards are applicable to this client yet. Go to{" "}
               <Link

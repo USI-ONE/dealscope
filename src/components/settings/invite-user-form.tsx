@@ -75,7 +75,7 @@ export function InviteUserForm() {
   return (
     <Card className="border-primary/40">
       <CardContent className="space-y-4 p-4">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start justify-between gap-3 max-sm:flex-wrap">
           <h3 className="text-sm font-bold uppercase tracking-wider">
             Invite user by email
           </h3>

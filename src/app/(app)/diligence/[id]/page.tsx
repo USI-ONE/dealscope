@@ -1,3 +1,4 @@
+import { ScrollActiveIntoView } from "@/components/ui/scroll-active-into-view";
 import Link from "next/link";
 import { Fragment } from "react";
 import { notFound } from "next/navigation";
@@ -318,7 +319,7 @@ export default async function DiligenceEngagementPage({
               M&amp;A Diligence Engagement
             </p>
             <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-4xl font-bold tracking-[-0.04em] text-foreground">
+              <h1 className="text-3xl font-bold tracking-[-0.04em] text-foreground sm:text-4xl">
                 {engagement.targetCompanyName}
               </h1>
               {linkedClient && (
@@ -380,8 +381,10 @@ export default async function DiligenceEngagementPage({
 
       {/* Track navigation — Apple segmented-control style */}
       <div className="space-y-2">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex-1 overflow-x-auto">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+          {/* Phones: full-bleed, swipeable strip with the active tab scrolled into view. */}
+          <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:flex-1 sm:px-0 [&::-webkit-scrollbar]:hidden">
+            <ScrollActiveIntoView />
             <nav
               aria-label="Diligence tracks"
               className="inline-flex min-w-full items-center gap-0.5 rounded-2xl bg-muted/60 p-1"
@@ -396,8 +399,9 @@ export default async function DiligenceEngagementPage({
                     )}
                     <Link
                       href={`/diligence/${engagement.id}?tab=${t.id}`}
+                      aria-current={isActive ? "page" : undefined}
                       className={cn(
-                        "flex items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-1.5 text-[13px] font-medium transition-all duration-150",
+                        "flex items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-2 text-[13px] font-medium transition-all duration-150 sm:py-1.5",
                         isActive
                           ? "bg-card text-foreground shadow-card"
                           : "text-muted-foreground hover:text-foreground hover:bg-muted/80",

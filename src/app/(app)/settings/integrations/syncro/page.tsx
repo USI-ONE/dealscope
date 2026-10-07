@@ -60,7 +60,7 @@ export default async function SyncroIntegrationPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-start gap-4">
-        <div className="rounded-lg bg-primary/10 p-3">
+        <div className="hidden rounded-lg bg-primary/10 p-3 sm:block">
           <Cable className="size-8 text-primary" />
         </div>
         <div>

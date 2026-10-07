@@ -109,6 +109,74 @@
   }
 }
 
+/* ---- Phones ------------------------------------------------------------- */
+/* iOS Safari zooms the page when a focused field's text is under 16px. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+  select,
+  textarea {
+    font-size: max(16px, 1em) !important;
+  }
+}
+@media (max-width: 767px) {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  /* Tables wrapped in a clipped card scroll sideways instead of being cut off. */
+  main .overflow-hidden:has(> table),
+  main .overflow-hidden:has(> div > table) {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* Long unbroken strings (emails, URLs, file names) wrap instead of
+     pushing the page wider than the screen. */
+  main {
+    overflow-wrap: break-word;
+  }
+  main table {
+    overflow-wrap: normal;
+  }
+  /* <table class="table-stack">: each row becomes a card; cells show their
+     column name from data-label (empty label = full-width cell). */
+  .table-stack thead {
+    display: none;
+  }
+  .table-stack,
+  .table-stack tbody,
+  .table-stack tr,
+  .table-stack td {
+    display: block;
+    width: 100%;
+  }
+  .table-stack tr {
+    padding: 0.75rem 1rem;
+  }
+  .table-stack td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.3rem 0 !important;
+    text-align: left !important;
+    overflow-wrap: anywhere;
+  }
+  .table-stack td[data-label]:not([data-label=""])::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+  }
+  .table-stack td[data-label=""] {
+    display: block;
+  }
+  .table-stack td[data-label=""] > div {
+    justify-content: flex-start;
+  }
+}
+
 @layer utilities {
   /* Apple-style gradient text */
   .text-gradient {

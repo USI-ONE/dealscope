@@ -21,8 +21,13 @@ export function AppHeader({
 
   return (
     <header
-      className="flex h-12 shrink-0 items-center justify-between gap-4 border-b border-border/60 bg-background/90 px-4 backdrop-blur-xl md:px-5 print:hidden"
-      style={{ paddingLeft: "max(1rem, env(safe-area-inset-left))", paddingRight: "max(1rem, env(safe-area-inset-right))" }}
+      className="sticky top-0 z-30 flex shrink-0 items-center justify-between gap-2 border-b border-border/60 bg-background/90 px-4 backdrop-blur-xl sm:gap-4 md:static md:px-5 print:hidden"
+      style={{
+        paddingLeft: "max(1rem, env(safe-area-inset-left))",
+        paddingRight: "max(1rem, env(safe-area-inset-right))",
+        paddingTop: "env(safe-area-inset-top)",
+        minHeight: "calc(3rem + env(safe-area-inset-top))",
+      }}
     >
       <MobileNav externalDiligence={isExternalRole(membership.role)} />
       {/* Breadcrumb */}

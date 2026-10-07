@@ -188,7 +188,7 @@ export function ClientProceduresCard({
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-start justify-between space-y-0">
+      <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-x-3 gap-y-2 space-y-0">
         <div>
           <CardTitle>Procedures (Runbooks)</CardTitle>
           <p className="mt-1 text-xs text-muted-foreground">
@@ -551,7 +551,7 @@ function ActiveRunPanel({
 
   return (
     <div className="space-y-3 rounded-md border-2 border-primary/40 bg-primary/5 p-3">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-2 max-sm:flex-wrap">
         <div className="text-xs font-bold uppercase tracking-wider">
           Run in progress
           <span className="ml-2 font-normal normal-case text-muted-foreground">

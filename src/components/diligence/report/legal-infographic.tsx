@@ -151,7 +151,7 @@ export function LegalInfographic() {
                 { label: "Patents", status: "None", note: "", warn: false },
                 { label: "IP Assignments", status: "Not executed", note: "Employees signed offer letters only — specific IP assignment gap", warn: true },
               ].map((item) => (
-                <div key={item.label} className="flex items-start justify-between gap-3">
+                <div key={item.label} className="flex items-start justify-between gap-3 max-sm:flex-wrap">
                   <span className="text-slate-500 shrink-0 w-36">{item.label}</span>
                   <div className="text-right">
                     <span className={`font-semibold ${item.warn ? "text-amber-700" : "text-slate-700"}`}>

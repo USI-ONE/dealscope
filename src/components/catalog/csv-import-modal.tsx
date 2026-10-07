@@ -169,7 +169,7 @@ export function CsvImportModal<TRow>({
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 p-4 overflow-y-auto">
       <Card className="my-8 w-full max-w-4xl">
         <CardContent className="space-y-4 p-6">
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start justify-between gap-3 max-sm:flex-wrap">
             <div>
               <h2 className="text-lg font-bold">{title}</h2>
               <p className="text-xs text-muted-foreground">{description}</p>

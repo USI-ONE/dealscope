@@ -68,7 +68,7 @@ function LeaseCard({
   return (
     <div className={`rounded-lg border-2 p-4 space-y-3 ${urgency}`}>
       <div>
-        <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start justify-between gap-2 max-sm:flex-wrap">
           <div className="text-sm font-bold text-slate-800">{site}</div>
           <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${expiryBadge}`}>
             {monthsOut < 24 ? "⚠ " : ""}Expires {expires}
@@ -292,7 +292,7 @@ export function FacilitiesInfographic() {
                 { label: "Scottsdale TI allowance", est: "$50k (negotiate)", timing: "Lease renewal" },
                 { label: "Card access (Scottsdale + Tempe)", est: "$15–20k", timing: "90-day plan" },
               ].map((c) => (
-                <div key={c.label} className="flex items-start justify-between gap-2">
+                <div key={c.label} className="flex items-start justify-between gap-2 max-sm:flex-wrap">
                   <div>
                     <div className="font-medium text-sm">{c.label}</div>
                     <div className="text-[10px] text-slate-400">{c.timing}</div>

@@ -134,7 +134,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const breadcrumbs = await buildBreadcrumbs(path, context.organization.id);
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-dvh">
       <AppSidebar
         canSeeFinance={canSeeFinance}
         externalDiligence={externalDiligence}
@@ -146,15 +146,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <AppHeader context={context} breadcrumbs={breadcrumbs} />
-        {/* Field (discovery) pages: no overflow on main, so the page itself
-            scrolls — position:sticky works and iOS keeps native scrolling.
-            Everywhere else keeps main as the scroll container so existing
-            wide tables still scroll horizontally. */}
+        {/* Phones: the page itself scrolls (native iOS scrolling, collapsing
+            toolbars, sticky headers); wide tables scroll inside their own
+            wrappers. Desktop keeps main as the scroll container, except on
+            field (discovery) pages which rely on position:sticky. */}
         <main
           className={
             path.startsWith("/discovery")
-              ? "min-w-0 flex-1 p-4 md:p-7 print:p-0"
-              : "flex-1 overflow-y-auto p-4 md:p-7"
+              ? "min-w-0 flex-1 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:p-7 print:p-0"
+              : path.startsWith("/diligence/")
+                ? // leave room for the floating AI assistant button
+                  "min-w-0 flex-1 p-4 pb-24 md:overflow-y-auto md:p-7"
+                : "min-w-0 flex-1 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:overflow-y-auto md:p-7"
           }
         >
           {children}

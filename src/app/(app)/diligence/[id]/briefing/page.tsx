@@ -220,7 +220,7 @@ export default async function TechOsBriefingPreviewPage({
       </div>
 
       <Card className="border-2 print:border-0 print:shadow-none">
-        <CardContent className="space-y-8 p-8 md:p-12">
+        <CardContent className="space-y-8 p-5 sm:p-8 md:p-12">
           {/* Cover */}
           <header className="space-y-1">
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">
@@ -238,7 +238,7 @@ export default async function TechOsBriefingPreviewPage({
           </header>
 
           {/* Headline KPIs */}
-          <div className="grid gap-3 md:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <Kpi label={usingBriefing ? "Top Risks Identified" : "Total Findings"} value={String(totalFindings)} />
             <Kpi label="Critical / High" value={String(criticalAndHigh)} />
             <Kpi

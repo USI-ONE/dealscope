@@ -90,7 +90,7 @@ export function DetectedLicensesCard({
   return (
     <Card className="border-emerald-300 bg-emerald-50/30 dark:border-emerald-800 dark:bg-emerald-950/10">
       <CardHeader>
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start justify-between gap-3 max-sm:flex-wrap">
           <div className="flex items-start gap-2">
             <Plug className="mt-1 size-5 text-emerald-700 dark:text-emerald-300" />
             <div>

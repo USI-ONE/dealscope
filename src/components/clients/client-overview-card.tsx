@@ -159,7 +159,7 @@ export function ClientOverviewCard({
   if (!editing) {
     return (
       <Card>
-        <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
+        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-x-3 gap-y-2 space-y-0">
           <CardTitle>Overview</CardTitle>
           <div className="flex items-center gap-2">
             {canEdit && (
@@ -263,7 +263,7 @@ export function ClientOverviewCard({
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
+      <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-x-3 gap-y-2 space-y-0">
         <CardTitle>Edit Overview</CardTitle>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={cancel} disabled={pending}>

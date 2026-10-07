@@ -74,7 +74,7 @@ export function ClientHealthBanner({
   return (
     <Card className={tone}>
       <CardContent className="space-y-2 p-4">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center justify-between gap-3 max-sm:flex-wrap">
           <div className="flex items-center gap-2">
             <AlertTriangle className="size-5 text-amber-700 dark:text-amber-300" />
             <span className="text-sm font-semibold uppercase tracking-wider">

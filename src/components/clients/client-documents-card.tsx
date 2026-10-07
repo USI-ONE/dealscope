@@ -61,7 +61,7 @@ export function ClientDocumentsCard({
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0">
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-x-3 gap-y-2 space-y-0">
         <CardTitle>Documents</CardTitle>
         {canEdit && !adding && (
           <Button variant="outline" size="sm" onClick={() => setAdding(true)}>

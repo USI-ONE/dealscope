@@ -59,7 +59,7 @@ export default async function ClientCompliancePage({
           <ChevronLeft className="size-4" /> Back to {client.name}
         </Link>
         <Card>
-          <CardContent className="space-y-3 p-8 text-center">
+          <CardContent className="space-y-3 p-5 sm:p-8 text-center">
             <h2 className="text-lg font-semibold">No standards yet</h2>
             <p className="text-sm text-muted-foreground">
               Create or clone a standard first, then come back here to assess

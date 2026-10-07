@@ -100,12 +100,12 @@ export default async function TechOsDiligencePage() {
   return (
     <div className="space-y-8">
       {/* Hero header */}
-      <div className="flex items-end justify-between gap-6 pb-2">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6 pb-2">
         <div>
           <p className="mb-1 text-[13px] font-semibold uppercase tracking-[0.12em] text-primary">
             M&amp;A Due Diligence
           </p>
-          <h1 className="text-4xl font-bold tracking-[-0.03em] text-foreground">
+          <h1 className="text-3xl font-bold tracking-[-0.03em] text-foreground sm:text-4xl">
             Engagements
           </h1>
           <p className="mt-2 max-w-xl text-[15px] text-muted-foreground">

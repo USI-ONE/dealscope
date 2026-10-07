@@ -247,7 +247,7 @@ export default async function ClientInternetPage({
       </Link>
 
       <div className="flex items-start gap-3">
-        <div className="rounded-lg bg-primary/10 p-3">
+        <div className="hidden rounded-lg bg-primary/10 p-3 sm:block">
           <Wifi className="size-8 text-primary" />
         </div>
         <div>
@@ -539,7 +539,7 @@ function CircuitCard({
 }) {
   return (
     <div className="rounded-lg border bg-background p-4">
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
         <div className="flex items-start gap-3">
           <Cable className="mt-0.5 size-5 text-muted-foreground" />
           <div>

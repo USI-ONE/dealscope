@@ -72,7 +72,7 @@ export default async function ClientVoicePage({
           <ChevronLeft className="size-4" /> Back to {client.name}
         </Link>
         <div className="flex items-start gap-3">
-          <div className="rounded-lg bg-primary/10 p-3">
+          <div className="hidden rounded-lg bg-primary/10 p-3 sm:block">
             <PhoneCall className="size-8 text-primary" />
           </div>
           <div>
@@ -152,7 +152,7 @@ export default async function ClientVoicePage({
       </Link>
 
       <div className="flex items-start gap-3">
-        <div className="rounded-lg bg-primary/10 p-3">
+        <div className="hidden rounded-lg bg-primary/10 p-3 sm:block">
           <PhoneCall className="size-8 text-primary" />
         </div>
         <div>

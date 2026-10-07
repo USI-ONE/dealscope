@@ -119,7 +119,7 @@ export function BillDetail({
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
+        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-x-3 gap-y-2 space-y-0">
           <div>
             <CardTitle className="text-lg">{bill.vendorName ?? "Unknown vendor"}</CardTitle>
             <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
@@ -174,7 +174,7 @@ export function BillDetail({
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-x-3 gap-y-2 space-y-0">
           <div>
             <CardTitle>Line items</CardTitle>
             <p className="mt-1 text-xs text-muted-foreground">

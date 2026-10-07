@@ -83,15 +83,15 @@ export default async function MembersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="flex items-start gap-4">
-          <div className="rounded-lg bg-primary/10 p-3">
+          <div className="hidden rounded-lg bg-primary/10 p-3 sm:block">
             <Users className="size-8 text-primary" />
           </div>
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Members</h1>
             <p className="text-muted-foreground">
-              TechOS uses standalone email + password authentication. Owners
+              DealScope uses standalone email + password authentication. Owners
               create accounts here and share credentials with the user
               out-of-band. Users can change their own password from{" "}
               <strong>Settings → Account</strong>.
@@ -99,7 +99,7 @@ export default async function MembersPage() {
           </div>
         </div>
         {isOwner && (
-          <div className="flex flex-col items-end gap-2">
+          <div className="flex flex-wrap gap-2 sm:flex-col sm:items-end">
             <InviteUserForm />
             <CreateUserForm />
           </div>
@@ -112,7 +112,7 @@ export default async function MembersPage() {
             <CardTitle className="text-base">Read-only</CardTitle>
             <CardDescription>
               Only owners can create accounts or change roles, finance
-              access, or activation. Contact your TechOS owner to make
+              access, or activation. Contact your DealScope owner to make
               changes.
             </CardDescription>
           </CardHeader>

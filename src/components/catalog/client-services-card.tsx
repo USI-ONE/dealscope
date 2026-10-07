@@ -163,7 +163,7 @@ export function ClientServicesCard({
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-start justify-between space-y-0">
+      <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-x-3 gap-y-2 space-y-0">
         <div>
           <CardTitle>Service accounts</CardTitle>
           <p className="mt-1 text-xs text-muted-foreground">

@@ -107,7 +107,7 @@ export function InvoiceBatchButton({
       {outcomes && (
         <Card className="w-[28rem] max-w-full border-emerald-500/30 bg-emerald-500/5">
           <CardContent className="space-y-2 p-3">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center justify-between gap-2 max-sm:flex-wrap">
               <div className="flex items-center gap-2 text-sm font-semibold">
                 <CheckCircle2 className="size-4 text-emerald-600" />
                 Batch complete · {month}

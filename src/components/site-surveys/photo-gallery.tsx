@@ -362,7 +362,7 @@ function PhotoCard({
             </div>
           </div>
         )}
-        <div className="flex items-center justify-between gap-1">
+        <div className="flex items-center justify-between gap-1 max-sm:flex-wrap">
           <a
             href={photo.url}
             target="_blank"

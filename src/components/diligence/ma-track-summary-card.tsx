@@ -112,7 +112,7 @@ function Tile({
   const t = TONES[tone];
   return (
     <div className={`rounded-lg border ring-1 ${t.ring} p-3`}>
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex items-start justify-between gap-2 max-sm:flex-wrap">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             {label}

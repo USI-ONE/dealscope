@@ -73,7 +73,7 @@ export default async function DiscoveryListPage() {
       </div>
 
       {rows.length === 0 && (
-        <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border p-10 text-center">
+        <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border p-5 sm:p-10 text-center">
           <ClipboardList className="size-8 text-muted-foreground" />
           <p className="text-[15px] font-medium">No site walks yet</p>
           <p className="max-w-sm text-sm text-muted-foreground">

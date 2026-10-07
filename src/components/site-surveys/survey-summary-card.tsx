@@ -36,7 +36,7 @@ export function SurveySummaryCard({
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 max-sm:flex-wrap">
           <CardTitle className="flex items-center gap-2">
             <ClipboardCheck className="size-4" />
             Site surveys

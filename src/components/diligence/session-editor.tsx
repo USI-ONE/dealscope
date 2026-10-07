@@ -110,7 +110,7 @@ export function SessionEditor({
     <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
       <div className="space-y-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-x-3 gap-y-2 space-y-0">
             <CardTitle>Notes</CardTitle>
             {canEdit && (
               <Button size="sm" onClick={save} disabled={pending || !dirty}>
@@ -221,7 +221,7 @@ function AttendeesPanel({
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0">
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-x-3 gap-y-2 space-y-0">
         <CardTitle>Attendees</CardTitle>
         {canEdit && !adding && (
           <Button variant="outline" size="sm" onClick={() => setAdding(true)}>

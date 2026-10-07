@@ -119,12 +119,12 @@ export function GenerateBillablesButton({ month }: { month: string }) {
             </header>
             <div className="max-h-[60vh] overflow-y-auto">
               {pending && !preview ? (
-                <div className="p-8 text-center text-sm text-muted-foreground">
+                <div className="p-5 sm:p-8 text-center text-sm text-muted-foreground">
                   <Loader2 className="mx-auto mb-2 size-4 animate-spin" />
                   Computing preview…
                 </div>
               ) : preview && preview.length === 0 ? (
-                <div className="p-8 text-center text-sm text-muted-foreground">
+                <div className="p-5 sm:p-8 text-center text-sm text-muted-foreground">
                   No candidate billables. Either no vendor snapshots
                   exist yet, or every active license already has a
                   billable for this period.

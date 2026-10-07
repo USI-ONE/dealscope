@@ -208,7 +208,7 @@ export function CameraSheet({ open, title, subtitle, onClose, onCapture }: Props
           <div className="absolute inset-0 flex items-center justify-center text-sm text-white/70">Starting camera…</div>
         )}
         {error && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-8 text-center">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-5 sm:p-8 text-center">
             <p className="text-[15px] text-white/80">{error}</p>
             <button
               type="button"

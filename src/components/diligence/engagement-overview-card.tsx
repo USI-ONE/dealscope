@@ -154,7 +154,7 @@ export function EngagementOverviewCard({
   if (!editing) {
     return (
       <Card>
-        <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
+        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-x-3 gap-y-2 space-y-0">
           <CardTitle>Overview</CardTitle>
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" size="sm" asChild>
@@ -194,7 +194,7 @@ export function EngagementOverviewCard({
           </div>
         </CardHeader>
         <CardContent>
-          <dl className="grid gap-x-6 gap-y-3 md:grid-cols-2">
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:gap-x-6">
             <Field label="Status">
               <StatusBadge status={engagement.status} archived={!!engagement.archivedAt} />
             </Field>
@@ -225,7 +225,7 @@ export function EngagementOverviewCard({
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
+      <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-x-3 gap-y-2 space-y-0">
         <CardTitle>Edit Overview</CardTitle>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={cancel} disabled={pending}>

@@ -169,7 +169,7 @@ export function SignoffPanel({
   if (isSigned) {
     return (
       <div className="rounded-md border bg-card px-3 py-2 text-xs border-l-4 border-l-emerald-500">
-        <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start justify-between gap-2 max-sm:flex-wrap">
           <div className="flex items-start gap-2">
             <CheckCircle2 className="mt-0.5 size-3.5 text-emerald-600" />
             <div className="text-foreground">
@@ -212,7 +212,7 @@ export function SignoffPanel({
   // amber icon; body text stays in default foreground for readability.
   return (
     <div className="space-y-2 rounded-md border bg-card px-3 py-2 text-xs border-l-4 border-l-amber-500">
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex items-start justify-between gap-2 max-sm:flex-wrap">
         <div className="flex items-start gap-2">
           <ShieldCheck className="mt-0.5 size-3.5 text-amber-600" />
           <div className="text-foreground">

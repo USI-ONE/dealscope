@@ -395,7 +395,7 @@ export default async function ClientBillingPage({
       </div>
 
       <Card className="border-2 print:border-0 print:shadow-none">
-        <CardContent className="space-y-8 p-8 md:p-10">
+        <CardContent className="space-y-8 p-5 sm:p-8 md:p-10">
           {/* Header */}
           <header className="flex items-start justify-between gap-4">
             <div>

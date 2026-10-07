@@ -113,7 +113,7 @@ export function CreateUserForm() {
     return (
       <Card className="border-emerald-500/40 bg-emerald-500/5">
         <CardContent className="space-y-3 p-4">
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start justify-between gap-3 max-sm:flex-wrap">
             <div>
               <h3 className="text-sm font-bold uppercase tracking-wider">
                 User created
@@ -140,7 +140,7 @@ export function CreateUserForm() {
             </div>
           </div>
           <div className="space-y-2 rounded-md border bg-card p-3 font-mono text-sm">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center justify-between gap-2 max-sm:flex-wrap">
               <div>
                 <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
                   Email
@@ -148,7 +148,7 @@ export function CreateUserForm() {
                 <div>{created.email}</div>
               </div>
             </div>
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center justify-between gap-2 max-sm:flex-wrap">
               <div className="flex-1 min-w-0">
                 <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
                   Password
@@ -200,7 +200,7 @@ export function CreateUserForm() {
   return (
     <Card className="border-primary/40">
       <CardContent className="space-y-4 p-4">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start justify-between gap-3 max-sm:flex-wrap">
           <h3 className="text-sm font-bold uppercase tracking-wider">
             Add user
           </h3>

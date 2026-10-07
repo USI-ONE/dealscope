@@ -99,7 +99,7 @@ export function PendingInvitationsTable({
 
   return (
     <div className="overflow-x-auto rounded-md border">
-      <table className="w-full text-sm">
+      <table className="table-stack w-full text-sm">
         <thead className="border-b bg-muted/30 text-left text-xs uppercase tracking-wider text-muted-foreground">
           <tr>
             <th className="px-3 py-2 font-medium">Email</th>
@@ -118,7 +118,7 @@ export function PendingInvitationsTable({
               inv.expiresAt && new Date(inv.expiresAt).getTime() < Date.now();
             return (
               <tr key={inv.id} className="border-b last:border-0 align-top">
-                <td className="px-3 py-2">
+                <td data-label="" className="px-3 py-2">
                   <div className="font-medium">{inv.email}</div>
                   {inv.note && (
                     <div className="mt-0.5 text-[11px] text-muted-foreground italic">
@@ -126,24 +126,24 @@ export function PendingInvitationsTable({
                     </div>
                   )}
                 </td>
-                <td className="px-3 py-2">
+                <td data-label="Role" className="px-3 py-2">
                   <Badge variant="outline" className="text-[10px] uppercase">
                     {ROLE_LABEL[inv.role]}
                   </Badge>
                 </td>
-                <td className="px-3 py-2 text-[11px] text-muted-foreground">
+                <td data-label="Finance" className="px-3 py-2 text-[11px] text-muted-foreground">
                   {inv.financeAccess ? "Yes" : "No"}
                 </td>
-                <td className="px-3 py-2 text-[11px] text-muted-foreground">
+                <td data-label="Invited by" className="px-3 py-2 text-[11px] text-muted-foreground">
                   {inv.invitedByName ?? "—"}
                 </td>
-                <td className="px-3 py-2 text-[11px] text-muted-foreground">
+                <td data-label="Sent" className="px-3 py-2 text-[11px] text-muted-foreground">
                   {fmt(inv.lastEmailSentAt ?? inv.invitedAt)}
                   {inv.emailSendAttemptCount && inv.emailSendAttemptCount > 1 && (
                     <div>×{inv.emailSendAttemptCount}</div>
                   )}
                 </td>
-                <td className="px-3 py-2 text-[11px]">
+                <td data-label="Expires" className="px-3 py-2 text-[11px]">
                   <span
                     className={
                       expired ? "text-destructive" : "text-muted-foreground"
@@ -152,7 +152,7 @@ export function PendingInvitationsTable({
                     {fmt(inv.expiresAt)}
                   </span>
                 </td>
-                <td className="px-3 py-2">
+                <td data-label="Status" className="px-3 py-2">
                   {inv.lastEmailError ? (
                     <Badge variant="destructive" className="text-[10px]" title={inv.lastEmailError}>
                       Send failed
@@ -167,7 +167,7 @@ export function PendingInvitationsTable({
                     </Badge>
                   )}
                 </td>
-                <td className="px-3 py-2 text-right">
+                <td data-label="" className="px-3 py-2 text-right">
                   {isOwner && (
                     <div className="flex flex-wrap items-center justify-end gap-1">
                       <Button

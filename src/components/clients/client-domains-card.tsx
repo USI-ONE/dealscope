@@ -63,7 +63,7 @@ export function ClientDomainsCard({
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0">
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-x-3 gap-y-2 space-y-0">
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
@@ -315,7 +315,7 @@ function DomainForm({
 
   return (
     <div className="space-y-3 rounded-md border bg-muted/20 p-3">
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-3 max-sm:flex-wrap">
         <h3 className="text-sm font-bold uppercase tracking-wider">
           {domain ? "Edit domain" : "Add domain"}
         </h3>

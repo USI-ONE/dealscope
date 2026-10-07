@@ -361,7 +361,7 @@ export function NewProjectForm({
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center justify-between gap-3 max-sm:flex-wrap">
           <p className="text-xs text-muted-foreground">
             {picked
               ? `Will seed ${picked.milestoneCount} milestones + ${picked.taskCount} tasks from the ${picked.label} template.`
@@ -408,7 +408,7 @@ function TemplateCard({
           : "border-border bg-card hover:border-foreground/40"
       }`}
     >
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex items-start justify-between gap-2 max-sm:flex-wrap">
         <div className="font-medium">{label}</div>
         {milestoneCount > 0 && (
           <div className="text-[10px] text-muted-foreground">

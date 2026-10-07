@@ -238,7 +238,7 @@ export function FinanceInfographic({ company }: { company: string }) {
               ["CapEx TTM", "$62k"],
               ["Auditor", "Review engagement (not audit)"],
             ].map(([k, v]) => (
-              <div key={k} className="flex items-start justify-between gap-2">
+              <div key={k} className="flex items-start justify-between gap-2 max-sm:flex-wrap">
                 <span className="text-slate-500 shrink-0">{k}</span>
                 <span className="font-medium text-right">{v}</span>
               </div>

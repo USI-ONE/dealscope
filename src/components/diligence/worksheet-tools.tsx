@@ -179,7 +179,7 @@ function ImportResultPanel({
 
   return (
     <div className="rounded-md border bg-muted/30 p-3 text-sm">
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex items-start justify-between gap-2 max-sm:flex-wrap">
         <div className="flex items-start gap-2">
           <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
           <div>

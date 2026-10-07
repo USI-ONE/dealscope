@@ -347,7 +347,7 @@ function TopicGrid({
                 dimmed ? "opacity-40" : ""
               }`}
             >
-              <div className="flex items-start justify-between gap-2">
+              <div className="flex items-start justify-between gap-2 max-sm:flex-wrap">
                 <h3 className="text-sm font-semibold">{c.name}</h3>
                 <div className="flex shrink-0 items-center gap-1">
                   {c.answered > c.satisfactory && (

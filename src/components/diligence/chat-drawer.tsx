@@ -120,17 +120,20 @@ export function DiligenceChatDrawer({ engagementId }: { engagementId: string }) 
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-lg hover:bg-primary/90"
+        className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-4 z-50 flex size-14 items-center justify-center gap-2 rounded-full bg-primary text-sm font-semibold text-primary-foreground shadow-lg hover:bg-primary/90 sm:bottom-6 sm:right-6 sm:size-auto sm:px-4 sm:py-2.5"
         aria-label="Open AI assistant"
       >
-        <Sparkles className="size-4" />
-        AI assistant
+        <Sparkles className="size-5 sm:size-4" />
+        <span className="hidden sm:inline">AI assistant</span>
       </button>
     );
   }
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col border-l bg-background shadow-2xl">
+    <div
+      className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col border-l bg-background shadow-2xl"
+      style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}
+    >
       <div className="flex items-center justify-between border-b px-4 py-3">
         <div>
           <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider">
