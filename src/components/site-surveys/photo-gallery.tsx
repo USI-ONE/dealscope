@@ -74,7 +74,8 @@ export function PhotoGallery({
         let count = 0;
         let skipped = 0;
         for (const original of picked) {
-          const img = await processImage(original);
+          // 2560px keeps each upload under the 4.5 MB server-function body limit.
+          const img = await processImage(original, { maxEdge: 2560 });
           const name = original.name.replace(/\.(heic|heif|png|webp)$/i, ".jpg");
           const fd = new FormData();
           fd.append("files", new File([img.blob], name, { type: img.mimeType }));

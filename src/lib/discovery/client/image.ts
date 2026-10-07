@@ -1,11 +1,12 @@
 /**
  * Normalizes a phone photo before upload: applies EXIF orientation,
- * downsizes to a sharp-but-sane 2560px long edge, re-encodes as JPEG.
+ * caps the long edge (4096px by default — enough to read serial labels on
+ * a 12MP shot), re-encodes as JPEG.
  * Re-encoding also strips EXIF, so GPS coordinates embedded by the
  * camera never leave the device.
  */
-const MAX_EDGE = 2560;
-const QUALITY = 0.85;
+const MAX_EDGE = 4096;
+const QUALITY = 0.88;
 
 export type ProcessedImage = { blob: Blob; width?: number; height?: number; mimeType: string };
 
@@ -35,7 +36,7 @@ export function canvasToJpeg(canvas: HTMLCanvasElement, quality = QUALITY): Prom
   );
 }
 
-export async function processImage(file: Blob): Promise<ProcessedImage> {
+export async function processImage(file: Blob, opts: { maxEdge?: number } = {}): Promise<ProcessedImage> {
   let source: ImageBitmap | HTMLImageElement;
   try {
     source = await decode(file);
@@ -45,7 +46,7 @@ export async function processImage(file: Blob): Promise<ProcessedImage> {
   }
   const w = "naturalWidth" in source ? source.naturalWidth : source.width;
   const h = "naturalHeight" in source ? source.naturalHeight : source.height;
-  const scale = Math.min(1, MAX_EDGE / Math.max(w, h));
+  const scale = Math.min(1, (opts.maxEdge ?? MAX_EDGE) / Math.max(w, h));
   const width = Math.round(w * scale);
   const height = Math.round(h * scale);
   const canvas = document.createElement("canvas");
