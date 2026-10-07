@@ -12,6 +12,36 @@ import {
   verifyPassword,
 } from "@/lib/auth-password";
 import { authedAction, authorize, PublicError } from "@/server/safe-action";
+import { isEmailConfigured } from "@/lib/email/graph";
+import {
+  issuePasswordToken,
+  sendPasswordResetEmail,
+  sendWelcomeEmail,
+} from "@/lib/email/account";
+
+const ROLE_LABEL: Record<string, string> = {
+  owner: "Owner",
+  executive: "Executive",
+  manager: "Manager",
+  member: "Member",
+  external_diligence: "External — Diligence only",
+};
+
+type EmailResult = { emailed: boolean; emailError: string | null };
+
+/** Run an email send, reporting the outcome instead of throwing. */
+async function trySend(send: () => Promise<void>): Promise<EmailResult> {
+  if (!isEmailConfigured()) {
+    return { emailed: false, emailError: "Email isn't configured (RESEND_API_KEY / INVITE_FROM_EMAIL)." };
+  }
+  try {
+    await send();
+    return { emailed: true, emailError: null };
+  } catch (e) {
+    console.error("[account-email]", e);
+    return { emailed: false, emailError: e instanceof Error ? e.message : "Email failed to send" };
+  }
+}
 
 const roleSchema = z.enum([
   "owner",
@@ -121,6 +151,8 @@ const createUserSchema = z.object({
   password: z.string().max(200).optional().nullable(),
   /** Force the user to change the password on first sign-in. */
   mustChangePassword: z.boolean().default(true),
+  /** Email the user a welcome message with a set-your-password link. */
+  sendWelcome: z.boolean().default(true),
 });
 
 export const createUserWithPassword = authedAction
@@ -196,6 +228,21 @@ export const createUserWithPassword = authedAction
       joinedAt: new Date(),
     });
 
+    const mail: EmailResult = parsedInput.sendWelcome
+      ? await trySend(async () => {
+          const { link, expires } = await issuePasswordToken(email, 7 * 24 * 60 * 60 * 1000);
+          await sendWelcomeEmail({
+            to: email,
+            name: parsedInput.name.trim(),
+            inviterName: ctx.user.name ?? ctx.user.email,
+            orgName: ctx.organization.name,
+            roleLabel: ROLE_LABEL[parsedInput.role] ?? parsedInput.role,
+            link,
+            expires,
+          });
+        })
+      : { emailed: false, emailError: null };
+
     revalidatePath("/settings/members");
     // Return the plaintext so the UI can show it once for the owner to
     // copy. It's never stored in plaintext anywhere.
@@ -204,6 +251,7 @@ export const createUserWithPassword = authedAction
       email,
       generatedPassword: plainPassword,
       mustChangePassword: parsedInput.mustChangePassword,
+      ...mail,
     };
   });
 
@@ -215,6 +263,8 @@ const resetPasswordSchema = z.object({
   /** If omitted, the server generates a new password. */
   password: z.string().max(200).optional().nullable(),
   mustChangePassword: z.boolean().default(true),
+  /** Also email the user a link to choose their own new password. */
+  emailUser: z.boolean().default(true),
 });
 
 export const resetUserPassword = authedAction
@@ -250,11 +300,23 @@ export const resetUserPassword = authedAction
       })
       .where(eq(users.id, membership.userId));
 
+    let mail: EmailResult = { emailed: false, emailError: null };
+    if (parsedInput.emailUser) {
+      const target = await db.query.users.findFirst({ where: eq(users.id, membership.userId) });
+      if (target) {
+        mail = await trySend(async () => {
+          const { link, expires } = await issuePasswordToken(target.email, 24 * 60 * 60 * 1000);
+          await sendPasswordResetEmail({ to: target.email, link, expires, byAdmin: ctx.user.name ?? ctx.user.email });
+        });
+      }
+    }
+
     revalidatePath("/settings/members");
     return {
       ok: true,
       generatedPassword: plain,
       mustChangePassword: parsedInput.mustChangePassword,
+      ...mail,
     };
   });
 

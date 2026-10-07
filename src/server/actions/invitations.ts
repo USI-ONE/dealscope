@@ -29,6 +29,7 @@ import {
   validatePasswordStrength,
 } from "@/lib/auth-password";
 import { sendInvitationEmail } from "@/lib/email/invitations";
+import { appBaseUrl } from "@/lib/email/account";
 import {
   action,
   authedAction,
@@ -56,11 +57,7 @@ const INVITATION_TTL_DAYS = 14;
  * Trailing slashes are stripped by sendInvitationEmail.
  */
 function inviteBaseUrl(): string {
-  const fromAuthUrl = process.env.AUTH_URL?.trim();
-  if (fromAuthUrl) return fromAuthUrl;
-  const fromVercel = process.env.VERCEL_URL?.trim();
-  if (fromVercel) return `https://${fromVercel}`;
-  return "http://localhost:3000";
+  return appBaseUrl();
 }
 
 /* ============================================================================

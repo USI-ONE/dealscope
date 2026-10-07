@@ -240,7 +240,7 @@ function ResetPasswordButton({
   const reset = () => {
     if (
       !confirm(
-        `Reset password for ${userLabel}? They will be required to change it on next sign-in.`,
+        `Reset password for ${userLabel}? They'll be emailed a link to choose a new one; a temporary password is also shown here.`,
       )
     )
       return;
@@ -255,6 +255,8 @@ function ResetPasswordButton({
         return;
       }
       const data = r?.data;
+      if (data?.emailed) toast.success(`Reset link emailed to ${userLabel}`);
+      else if (data?.emailError) toast.error(`Reset email not sent: ${data.emailError}`);
       if (data?.generatedPassword) {
         setGenerated(data.generatedPassword);
         router.refresh();

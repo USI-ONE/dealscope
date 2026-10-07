@@ -1,7 +1,6 @@
 /**
- * Invitation email composition + send. Uses Microsoft Graph
- * (`src/lib/email/graph.ts`) so no third-party email vendor is needed —
- * mail goes out from the tenant's own M365 mailbox.
+ * Invitation email composition + send via Resend
+ * (`src/lib/email/graph.ts`).
  */
 import "server-only";
 import { sendEmail } from "./graph";

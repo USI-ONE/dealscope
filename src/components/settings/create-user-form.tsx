@@ -39,12 +39,15 @@ export function CreateUserForm() {
   const [mode, setMode] = useState<"generate" | "set">("generate");
   const [password, setPassword] = useState("");
   const [mustChange, setMustChange] = useState(true);
+  const [sendWelcome, setSendWelcome] = useState(true);
 
   /** When set, shows a one-time success panel with the password to copy. */
   const [created, setCreated] = useState<{
     email: string;
     password: string;
     mustChange: boolean;
+    emailed: boolean;
+    emailError: string | null;
   } | null>(null);
 
   const reset = () => {
@@ -55,6 +58,7 @@ export function CreateUserForm() {
     setMode("generate");
     setPassword("");
     setMustChange(true);
+    setSendWelcome(true);
   };
 
   const submit = () => {
@@ -71,6 +75,7 @@ export function CreateUserForm() {
         financeAccess,
         password: mode === "set" ? password : null,
         mustChangePassword: mustChange,
+        sendWelcome,
       });
       if (r?.serverError) {
         toast.error(r.serverError);
@@ -82,7 +87,11 @@ export function CreateUserForm() {
           email: data.email,
           password: data.generatedPassword,
           mustChange: data.mustChangePassword,
+          emailed: data.emailed,
+          emailError: data.emailError,
         });
+        if (data.emailed) toast.success(`Welcome email sent to ${data.email}`);
+        else if (data.emailError) toast.error(`User created, but the welcome email failed: ${data.emailError}`);
         reset();
         router.refresh();
       }
@@ -109,9 +118,20 @@ export function CreateUserForm() {
               <h3 className="text-sm font-bold uppercase tracking-wider">
                 User created
               </h3>
+              {created.emailed ? (
+                <p className="mt-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                  Welcome email sent to {created.email} with a link to set
+                  their own password (valid 7 days).
+                </p>
+              ) : created.emailError ? (
+                <p className="mt-1 text-xs font-medium text-destructive">
+                  Welcome email not sent: {created.emailError}
+                </p>
+              ) : null}
               <p className="mt-1 text-xs text-muted-foreground">
-                Share these credentials with the user out-of-band (in person, in
-                a password manager, etc.).
+                {created.emailed
+                  ? "You can also share this temporary password out-of-band if they need it."
+                  : "Share these credentials with the user out-of-band (in person, in a password manager, etc.)."}
                 {created.mustChange &&
                   " They'll be required to change the password on first sign-in."}
                 <br />
@@ -302,6 +322,14 @@ export function CreateUserForm() {
               onChange={(e) => setMustChange(e.target.checked)}
             />
             Require password change on first sign-in
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={sendWelcome}
+              onChange={(e) => setSendWelcome(e.target.checked)}
+            />
+            Email the user a welcome link to set their own password
           </label>
         </div>
 
