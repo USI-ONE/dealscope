@@ -135,7 +135,7 @@ export function TopologyCapture() {
             disabled={busy}
             className="flex size-[88px] shrink-0 flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-border bg-muted/40 text-xs font-medium text-muted-foreground"
           >
-            <Camera className="size-6" /> {fine ? "Webcam" : "Snap"}
+            <Camera className="size-6" /> {fine ? "Camera" : "Snap"}
           </button>,
           <label
             key="upload"

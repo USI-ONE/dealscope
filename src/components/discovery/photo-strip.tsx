@@ -86,7 +86,7 @@ export function PhotoStrip({
       aria-label={`Take photo: ${title}`}
     >
       <Camera className="size-5" />
-      {primary ? (photos.length ? "Add" : required ? "Required" : "Photo") : fine ? "Webcam" : "Camera"}
+      {primary ? (photos.length ? "Add" : required ? "Required" : "Photo") : "Camera"}
     </button>
   );
   const uploadTile = (primary: boolean) => (
