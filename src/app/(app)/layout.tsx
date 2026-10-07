@@ -5,7 +5,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { diligenceEngagements, diligenceSessions } from "@/db/schema";
+import { diligenceEngagements, diligenceSessions, discoveryProjects } from "@/db/schema";
 import { AppHeader } from "@/components/nav/app-header";
 import { AppSidebar } from "@/components/nav/app-sidebar";
 import { canCtx, getActiveContext } from "@/lib/auth-helpers";
@@ -36,6 +36,19 @@ async function buildBreadcrumbs(
       const crumbs: BreadcrumbSegment[] = [{ label: "Settings", href: "/settings/account" }];
       if (segment && SETTINGS_LABELS[segment]) {
         crumbs.push({ label: SETTINGS_LABELS[segment] });
+      }
+      return crumbs;
+    }
+
+    if (path.startsWith("/discovery")) {
+      const crumbs: BreadcrumbSegment[] = [{ label: "Site discovery", href: "/discovery" }];
+      const m = path.match(/^\/discovery\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+      if (m) {
+        const project = await db.query.discoveryProjects.findFirst({
+          where: and(eq(discoveryProjects.id, m[1]), eq(discoveryProjects.organizationId, orgId)),
+          columns: { name: true },
+        });
+        if (project) crumbs.push({ label: project.name, href: `/discovery/${m[1]}` });
       }
       return crumbs;
     }
@@ -133,7 +146,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <AppHeader context={context} breadcrumbs={breadcrumbs} />
-        <main className="flex-1 overflow-y-auto p-7">{children}</main>
+        {/* Field (discovery) pages: no overflow on main, so the page itself
+            scrolls — position:sticky works and iOS keeps native scrolling.
+            Everywhere else keeps main as the scroll container so existing
+            wide tables still scroll horizontally. */}
+        <main
+          className={
+            path.startsWith("/discovery")
+              ? "min-w-0 flex-1 p-4 md:p-7 print:p-0"
+              : "flex-1 overflow-y-auto p-4 md:p-7"
+          }
+        >
+          {children}
+        </main>
       </div>
     </div>
   );

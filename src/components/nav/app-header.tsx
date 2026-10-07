@@ -4,6 +4,8 @@ import { signOut } from "@/auth";
 import { Button } from "@/components/ui/button";
 import type { ActiveContext } from "@/lib/auth-helpers";
 import { ChevronRight, LogOut } from "lucide-react";
+import { isExternalRole } from "@/lib/rbac";
+import { MobileNav } from "./mobile-nav";
 import { ThemeToggle } from "./theme-toggle";
 
 type BreadcrumbSegment = { label: string; href?: string };
@@ -18,7 +20,11 @@ export function AppHeader({
   const { user, organization, membership } = context;
 
   return (
-    <header className="flex h-12 shrink-0 items-center justify-between border-b border-border/60 bg-background/90 px-5 backdrop-blur-xl gap-4">
+    <header
+      className="flex h-12 shrink-0 items-center justify-between gap-4 border-b border-border/60 bg-background/90 px-4 backdrop-blur-xl md:px-5 print:hidden"
+      style={{ paddingLeft: "max(1rem, env(safe-area-inset-left))", paddingRight: "max(1rem, env(safe-area-inset-right))" }}
+    >
+      <MobileNav externalDiligence={isExternalRole(membership.role)} />
       {/* Breadcrumb */}
       <nav className="flex min-w-0 flex-1 items-center gap-1" aria-label="Breadcrumb">
         {breadcrumbs.length > 0 ? (

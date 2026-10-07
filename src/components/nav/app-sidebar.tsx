@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FileSearch, Settings, Users, UserCircle2, Building2 } from "lucide-react";
+import { FileSearch, Settings, Users, UserCircle2, Building2, ClipboardCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
@@ -20,6 +20,10 @@ const PRIMARY_NAV: NavItem[] = [
     icon: FileSearch,
     externalDiligenceVisible: true,
   },
+];
+
+export const FIELD_NAV: NavItem[] = [
+  { href: "/discovery", label: "Site discovery", icon: ClipboardCheck },
 ];
 
 const SETTINGS_NAV: NavItem[] = [
@@ -72,7 +76,7 @@ export function AppSidebar({
   const displayName = user.name ?? user.email;
 
   return (
-    <aside className="hidden w-56 shrink-0 flex-col md:flex bg-[#111113]">
+    <aside className="hidden w-56 shrink-0 flex-col md:flex bg-[#111113] print:hidden">
       {/* Logo */}
       <div className="flex h-14 items-center px-4">
         <Link href="/diligence" className="group flex items-center gap-2.5">
@@ -107,6 +111,21 @@ export function AppSidebar({
             ),
           )}
         </ul>
+
+        {!externalDiligence && (
+          <div className="mt-6">
+            <p className="mb-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-widest text-white/25">
+              Field
+            </p>
+            <ul className="space-y-0.5">
+              {FIELD_NAV.map((item) => (
+                <li key={item.href}>
+                  <NavLink item={item} active={isActive(item.href)} />
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {!externalDiligence && (
           <div className="mt-6">

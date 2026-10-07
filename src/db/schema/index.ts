@@ -18,3 +18,4 @@ export * from "./security-reviews";
 export * from "./voice";
 export * from "./projects";
 export * from "./diligence-deal-room";
+export * from "./discovery";
