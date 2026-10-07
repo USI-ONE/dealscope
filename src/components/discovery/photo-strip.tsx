@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Camera, CloudOff, Loader2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Camera, CloudOff, Loader2, Upload } from "lucide-react";
+import { toast } from "sonner";
+import { imageFiles, useFinePointer } from "@/lib/discovery/client/input-mode";
 import type { PhotoTarget } from "@/lib/discovery/client/outbox-store";
 import { cn } from "@/lib/utils";
 import { CameraSheet } from "./camera-sheet";
@@ -52,32 +54,86 @@ export function PhotoStrip({
   const { projectId, pathPrefix, canEdit } = useDiscoveryProject();
   const outbox = useOutbox();
   const photos = useTargetPhotos(target, serverPhotos);
+  const fine = useFinePointer();
+  const fileRef = useRef<HTMLInputElement>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [dragging, setDragging] = useState(false);
   const [viewIndex, setViewIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (autoOpen) setCameraOpen(true);
   }, [autoOpen]);
 
+  const add = (files: File[]) => {
+    if (!files.length) return;
+    void outbox.addPhotos(files, target, { projectId, pathPrefix });
+    toast.success(`${files.length} photo${files.length === 1 ? "" : "s"} added`);
+  };
+
+  const emphasis =
+    required && photos.length === 0
+      ? "border-amber-500/70 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+      : "border-border bg-muted/40 text-muted-foreground";
+  const tile =
+    "flex shrink-0 flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed text-[11px] font-medium transition active:scale-95 hover:border-foreground/30";
+
+  const cameraTile = (primary: boolean) => (
+    <button
+      key="camera"
+      type="button"
+      onClick={() => setCameraOpen(true)}
+      className={cn(tile, primary ? cn("size-[72px]", emphasis) : "size-[72px] border-border bg-muted/40 text-muted-foreground")}
+      aria-label={`Take photo: ${title}`}
+    >
+      <Camera className="size-5" />
+      {primary ? (photos.length ? "Add" : required ? "Required" : "Photo") : fine ? "Webcam" : "Camera"}
+    </button>
+  );
+  const uploadTile = (primary: boolean) => (
+    <button
+      key="upload"
+      type="button"
+      onClick={() => fileRef.current?.click()}
+      className={cn(tile, primary ? cn("size-[72px]", emphasis) : "size-[72px] border-border bg-muted/40 text-muted-foreground")}
+      aria-label={`Upload photos: ${title}`}
+      title="Upload, drag images here, or paste a screenshot"
+    >
+      <Upload className="size-5" />
+      {primary ? (photos.length ? "Upload" : required ? "Required" : "Upload") : "Library"}
+    </button>
+  );
+
   return (
     <>
-      <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
-        {canEdit && (
-          <button
-            type="button"
-            onClick={() => setCameraOpen(true)}
-            className={cn(
-              "flex size-[72px] shrink-0 flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed text-[11px] font-medium active:scale-95 transition",
-              required && photos.length === 0
-                ? "border-amber-500/70 bg-amber-500/10 text-amber-700 dark:text-amber-400"
-                : "border-border bg-muted/40 text-muted-foreground",
-            )}
-            aria-label={`Take photo: ${title}`}
-          >
-            <Camera className="size-5" />
-            {photos.length ? "Add" : required ? "Required" : "Photo"}
-          </button>
+      <div
+        // Laptops: drop image files here, or click the strip and paste.
+        tabIndex={canEdit ? -1 : undefined}
+        onDragOver={(e) => {
+          if (!canEdit || !Array.from(e.dataTransfer.types).includes("Files")) return;
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => {
+          if (!canEdit) return;
+          e.preventDefault();
+          setDragging(false);
+          add(imageFiles(e.dataTransfer.files));
+        }}
+        onPaste={(e) => {
+          if (!canEdit) return;
+          const files = imageFiles(e.clipboardData.items);
+          if (files.length) {
+            e.preventDefault();
+            add(files);
+          }
+        }}
+        className={cn(
+          "flex gap-2 overflow-x-auto rounded-xl pb-1 outline-none [scrollbar-width:none]",
+          dragging && "ring-2 ring-primary ring-offset-2",
         )}
+      >
+        {canEdit && (fine ? [uploadTile(true), cameraTile(false)] : [cameraTile(true), uploadTile(false)])}
         {photos.map((p, i) => (
           <button
             key={p.id}
@@ -96,6 +152,20 @@ export function PhotoStrip({
           </button>
         ))}
       </div>
+      {canEdit && fine && photos.length === 0 && (
+        <p className="mt-1 text-[11px] text-muted-foreground">or drag images here / click here and paste a screenshot</p>
+      )}
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          add(imageFiles(e.target.files));
+          e.target.value = "";
+        }}
+      />
 
       <CameraSheet
         open={cameraOpen}

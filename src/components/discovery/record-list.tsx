@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Camera, ChevronRight, Copy, Plus, Search, Trash2, X } from "lucide-react";
+import { Camera, ChevronRight, Copy, Plus, Search, Trash2, Upload, X } from "lucide-react";
+import { imageFiles, useFinePointer } from "@/lib/discovery/client/input-mode";
 import { recordSubtitle, recordTitle } from "@/lib/discovery/templates";
 import type { TableDef } from "@/lib/discovery/types";
 import { cn } from "@/lib/utils";
@@ -88,6 +89,8 @@ export function RecordList({
   const [cameraFor, setCameraFor] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [local, setLocal] = useState<Record<string, RecordRow>>({});
+  const fine = useFinePointer();
+  const uploadRef = useRef<HTMLInputElement>(null);
 
   // Server rows overlaid with queued edits, minus deletions.
   const rows = useMemo(() => {
@@ -112,6 +115,7 @@ export function RecordList({
     outbox.saveRecord({ projectId, recordId: id, tableKey: table.key, data, sortOrder });
     if (withCamera) setCameraFor(id);
     else setOpenId(id);
+    return id;
   };
 
   const update = (id: string, data: Record<string, string>) => {
@@ -168,11 +172,25 @@ export function RecordList({
           </button>
           <button
             type="button"
-            onClick={() => create({}, true)}
+            onClick={() => (fine ? uploadRef.current?.click() : create({}, true))}
             className="flex h-12 items-center justify-center gap-2 rounded-xl border border-border bg-background text-[15px] font-semibold active:scale-[0.98]"
           >
-            <Camera className="size-5" /> Snap first
+            {fine ? <Upload className="size-5" /> : <Camera className="size-5" />} {fine ? "Upload first" : "Snap first"}
           </button>
+          <input
+            ref={uploadRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              const files = imageFiles(e.target.files);
+              e.target.value = "";
+              if (!files.length) return;
+              const id = create({});
+              void outbox.addPhotos(files, { recordId: id, sectionKey }, { projectId, pathPrefix });
+            }}
+          />
         </div>
       )}
 

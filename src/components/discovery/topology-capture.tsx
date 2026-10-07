@@ -6,6 +6,7 @@ import { Camera, ImagePlus, Loader2, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { createTopologyFromPhotos } from "@/server/actions/discovery-topology";
 import { uploadPhotoNow } from "@/lib/discovery/client/upload-now";
+import { imageFiles, useFinePointer } from "@/lib/discovery/client/input-mode";
 import { cn } from "@/lib/utils";
 import { CameraSheet } from "./camera-sheet";
 import { INPUT_CLS, TEXTAREA_CLS } from "./field-inputs";
@@ -33,9 +34,26 @@ export function TopologyCapture() {
   const [stage, setStage] = useState<"idle" | "uploading" | "reading">("idle");
   const [progress, setProgress] = useState(0);
 
+  const fine = useFinePointer();
+  const [dragging, setDragging] = useState(false);
+
   useEffect(() => () => shots.forEach((s) => URL.revokeObjectURL(s.url)), []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const add = (blobs: Blob[]) => setShots((s) => [...s, ...blobs.map((file) => ({ file, url: URL.createObjectURL(file) }))].slice(0, 6));
+
+  // Paste a screenshot anywhere on the page (e.g. Win+Shift+S → Ctrl+V).
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      if (stage !== "idle") return;
+      const files = imageFiles(e.clipboardData?.items);
+      if (!files.length) return;
+      e.preventDefault();
+      add(files);
+      toast.success(`Pasted ${files.length} image${files.length === 1 ? "" : "s"}`);
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [stage]);
 
   const generate = async () => {
     if (!shots.length) return void toast.error("Add at least one photo or screenshot");
@@ -95,29 +113,51 @@ export function TopologyCapture() {
         ))}
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        <button
-          type="button"
-          onClick={() => setCameraOpen(true)}
-          disabled={busy}
-          className="flex size-[88px] shrink-0 flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-border bg-muted/40 text-xs font-medium text-muted-foreground"
-        >
-          <Camera className="size-6" /> Snap
-        </button>
-        <label className="flex size-[88px] shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-border bg-muted/40 text-xs font-medium text-muted-foreground">
-          <ImagePlus className="size-6" /> Screenshot
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            className="hidden"
+      <div
+        onDragOver={(e) => {
+          if (busy || !Array.from(e.dataTransfer.types).includes("Files")) return;
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragging(false);
+          if (!busy) add(imageFiles(e.dataTransfer.files));
+        }}
+        className={cn("flex gap-2 overflow-x-auto rounded-xl pb-1", dragging && "ring-2 ring-primary ring-offset-2")}
+      >
+        {[
+          <button
+            key="snap"
+            type="button"
+            onClick={() => setCameraOpen(true)}
             disabled={busy}
-            onChange={(e) => {
-              add(Array.from(e.target.files ?? []));
-              e.target.value = "";
-            }}
-          />
-        </label>
+            className="flex size-[88px] shrink-0 flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-border bg-muted/40 text-xs font-medium text-muted-foreground"
+          >
+            <Camera className="size-6" /> {fine ? "Webcam" : "Snap"}
+          </button>,
+          <label
+            key="upload"
+            className={cn(
+              "flex size-[88px] shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed text-xs font-medium",
+              fine ? "border-primary/50 bg-primary/5 text-primary" : "border-border bg-muted/40 text-muted-foreground",
+            )}
+          >
+            <ImagePlus className="size-6" /> {fine ? "Upload" : "Screenshot"}
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              disabled={busy}
+              onChange={(e) => {
+                add(imageFiles(e.target.files));
+                e.target.value = "";
+              }}
+            />
+          </label>,
+        ][fine ? "reverse" : "slice"]() /* laptops: Upload first; phones: Snap first */}
         {shots.map((s, i) => (
           <div key={s.url} className="relative size-[88px] shrink-0 overflow-hidden rounded-xl bg-muted">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -136,7 +176,7 @@ export function TopologyCapture() {
         ))}
       </div>
       <p className="-mt-2 text-xs text-muted-foreground">
-        Up to 6 images. For a big whiteboard or plan, take overlapping close-ups — they’re read together.
+        {fine ? "Drag images here or press Ctrl+V to paste a screenshot. " : ""}Up to 6 images. For a big whiteboard or plan, take overlapping close-ups — they’re read together.
       </p>
 
       <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title (e.g. Main building — core & IDFs)" className={INPUT_CLS} disabled={busy} />
