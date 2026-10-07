@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Building2, ClipboardCheck, FileSearch, Menu, UserCircle2, Users, X } from "lucide-react";
@@ -20,6 +21,14 @@ export function MobileNav({ externalDiligence }: { externalDiligence: boolean })
   const pathname = usePathname();
 
   useEffect(() => setOpen(false), [pathname]);
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
 
   return (
     <>
@@ -31,7 +40,9 @@ export function MobileNav({ externalDiligence }: { externalDiligence: boolean })
       >
         <Menu className="size-5" />
       </button>
-      {open && (
+      {/* Portaled to <body>: the header's backdrop-blur makes it the containing
+          block for position:fixed, which would trap the drawer inside the bar. */}
+      {open && createPortal(
         <div className="fixed inset-0 z-[80] md:hidden" role="dialog" aria-modal="true">
           <button type="button" className="absolute inset-0 bg-black/50" onClick={() => setOpen(false)} aria-label="Close menu" />
           <nav
@@ -64,7 +75,8 @@ export function MobileNav({ externalDiligence }: { externalDiligence: boolean })
               })}
             </ul>
           </nav>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );
