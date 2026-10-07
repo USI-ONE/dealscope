@@ -30,6 +30,14 @@ import { SurveyStatusActions } from "@/components/site-surveys/survey-status-act
 
 export const metadata = { title: "DealScope · Site survey" };
 
+function isBlobUrl(url: string) {
+  try {
+    return new URL(url).hostname.endsWith(".blob.vercel-storage.com");
+  } catch {
+    return false;
+  }
+}
+
 export default async function SurveyDetailPage({
   params,
 }: {
@@ -281,7 +289,11 @@ export default async function SurveyDetailPage({
             surveyId={survey.id}
             photos={photoRows.map((r) => ({
               id: r.photo.id,
-              url: r.photo.url,
+              // Uploaded photos live in the private blob store and are
+              // proxied; pasted external URLs are linked directly.
+              url: isBlobUrl(r.photo.url)
+                ? `/surveys/${survey.id}/photos/${r.photo.id}`
+                : r.photo.url,
               filename: r.photo.filename,
               caption: r.photo.caption,
               itemId: r.photo.itemId,

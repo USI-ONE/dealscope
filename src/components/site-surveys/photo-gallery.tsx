@@ -21,6 +21,7 @@ import {
   registerSurveyPhoto,
   updateSurveyPhoto,
 } from "@/server/actions/site-surveys";
+import { processImage } from "@/lib/discovery/client/image";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,31 +66,41 @@ export function PhotoGallery({
     const picked = Array.from(e.target.files ?? []);
     if (e.target) e.target.value = "";
     if (picked.length === 0) return;
-    const fd = new FormData();
-    for (const f of picked) fd.append("files", f);
-    if (attachToItemId) fd.append("itemId", attachToItemId);
-
     startUpload(async () => {
       try {
-        const res = await fetch(`/surveys/${surveyId}/photos/upload`, {
-          method: "POST",
-          body: fd,
-        });
-        const data = await res.json();
-        if (!res.ok || !data.ok) {
-          if (res.status === 503) {
-            // Blob not configured — surface the paste fallback.
-            toast.error(
-              data.error ?? "Direct upload not configured. Use paste-in URL.",
-            );
-            setPasteOpen(true);
-            return;
+        // One file per request, shrunk on-device first: Vercel caps a
+        // function request body at 4.5 MB, which a single full-res phone
+        // photo can exceed.
+        let count = 0;
+        let skipped = 0;
+        for (const original of picked) {
+          const img = await processImage(original);
+          const name = original.name.replace(/\.(heic|heif|png|webp)$/i, ".jpg");
+          const fd = new FormData();
+          fd.append("files", new File([img.blob], name, { type: img.mimeType }));
+          if (attachToItemId) fd.append("itemId", attachToItemId);
+          const res = await fetch(`/surveys/${surveyId}/photos/upload`, {
+            method: "POST",
+            body: fd,
+          });
+          const data = await res.json().catch(() => ({ ok: false, error: `Upload failed (${res.status})` }));
+          if (!res.ok || !data.ok) {
+            if (res.status === 503) {
+              // Blob not configured — surface the paste fallback.
+              toast.error(
+                data.error ?? "Direct upload not configured. Use paste-in URL.",
+              );
+              setPasteOpen(true);
+              return;
+            }
+            toast.error(data.error ?? "Upload failed");
+            skipped++;
+            continue;
           }
-          toast.error(data.error ?? "Upload failed");
-          return;
+          count += data.photos.length;
+          skipped += data.skipped?.length ?? 0;
         }
-        const count = data.photos.length;
-        const skipped = data.skipped?.length ?? 0;
+        if (count === 0) return;
         toast.success(
           `Uploaded ${count} photo${count === 1 ? "" : "s"}${skipped > 0 ? ` (${skipped} skipped)` : ""}`,
         );

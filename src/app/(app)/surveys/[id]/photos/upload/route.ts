@@ -149,7 +149,9 @@ export async function POST(
 
     let blobUrl: string;
     try {
-      const blob = await put(key, f, { access: "public" });
+      // The store is private: photos are served via
+      // /surveys/[id]/photos/[photoId], never by raw blob URL.
+      const blob = await put(key, f, { access: "private" });
       blobUrl = blob.url;
     } catch (err) {
       skipped.push({

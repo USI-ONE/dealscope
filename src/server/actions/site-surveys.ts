@@ -11,6 +11,7 @@
  * action only registers the stored URL on a survey.
  */
 import { revalidatePath } from "next/cache";
+import { del } from "@vercel/blob";
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
@@ -538,6 +539,14 @@ export const deleteSurveyPhoto = authedAction
     });
     if (!photo) throw new PublicError("Photo not found");
     await db.delete(siteSurveyPhotos).where(eq(siteSurveyPhotos.id, photo.id));
+    // Remove our own uploads from Blob; pasted external URLs aren't ours.
+    if (photo.url.includes(".blob.vercel-storage.com") && process.env.BLOB_READ_WRITE_TOKEN) {
+      try {
+        await del(photo.url);
+      } catch (err) {
+        console.error("site survey: blob delete failed", err);
+      }
+    }
     revalidatePath(`/surveys/${photo.surveyId}`);
     return { ok: true };
   });
