@@ -199,6 +199,22 @@ export const archiveDiscoveryProject = authedAction
     return { ok: true };
   });
 
+/** Permanently remove a walk: rows cascade from the project; blobs are swept after. */
+export const deleteDiscoveryProject = authedAction
+  .schema(z.object({ projectId: z.string().uuid() }))
+  .action(async ({ parsedInput, ctx }) => {
+    await authorize("delete", "project");
+    const p = await assertProject(parsedInput.projectId, ctx.organization.id);
+    const photos = await db
+      .select({ url: discoveryPhotos.url })
+      .from(discoveryPhotos)
+      .where(eq(discoveryPhotos.projectId, p.id));
+    await db.delete(discoveryProjects).where(eq(discoveryProjects.id, p.id));
+    await deleteBlobs(photos.map((r) => r.url));
+    revalidatePath("/discovery");
+    return { ok: true };
+  });
+
 export const setDiscoverySectionNa = authedAction
   .schema(z.object({ projectId: z.string().uuid(), sectionKey: z.string().max(60), na: z.boolean() }))
   .action(async ({ parsedInput, ctx }) => {

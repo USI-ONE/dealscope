@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
-import { requirePermission } from "@/lib/auth-helpers";
+import { canCtx, requirePermission } from "@/lib/auth-helpers";
 import { getProject } from "@/lib/discovery/load";
 import { loadProjectFormOptions } from "@/lib/discovery/form-options";
 import { ProjectForm } from "@/components/discovery/project-form";
 import { ArchiveButton } from "@/components/discovery/archive-button";
+import { DeleteWalkButton } from "@/components/discovery/delete-walk-button";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Edit site walk" };
@@ -36,7 +37,12 @@ export default async function EditDiscoveryPage({ params }: { params: Promise<{ 
           summary: project.summary,
         }}
       />
-      <ArchiveButton projectId={project.id} />
+      {canCtx("delete", "project", ctx) && (
+        <div className="space-y-2 border-t border-border pt-5">
+          <ArchiveButton projectId={project.id} />
+          <DeleteWalkButton projectId={project.id} />
+        </div>
+      )}
     </div>
   );
 }
