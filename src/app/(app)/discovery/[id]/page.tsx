@@ -9,6 +9,7 @@ import {
   CircleHelp,
   FileSpreadsheet,
   FileText,
+  HardHat,
   MapPin,
   Network,
   Pencil,
@@ -178,10 +179,16 @@ export default async function DiscoveryHubPage({ params }: { params: Promise<{ i
         </Link>
         <a
           href={`/discovery/${project.id}/export.xlsx`}
-          className="col-span-2 flex h-14 items-center justify-center gap-2 rounded-2xl border border-border bg-card text-[15px] font-medium active:scale-[0.98] sm:col-span-1"
+          className="flex h-14 items-center justify-center gap-2 rounded-2xl border border-border bg-card text-[15px] font-medium active:scale-[0.98]"
         >
           <FileSpreadsheet className="size-5" /> Excel
         </a>
+        <Link
+          href={`/discovery/${project.id}/install`}
+          className="col-span-2 flex h-14 items-center justify-center gap-2 rounded-2xl border border-emerald-600/40 bg-emerald-600/5 text-[15px] font-semibold text-emerald-700 active:scale-[0.98] sm:col-span-4 dark:text-emerald-400"
+        >
+          <HardHat className="size-5" /> Install team brief
+        </Link>
       </div>
 
       <Link
