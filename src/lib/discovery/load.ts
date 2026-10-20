@@ -65,6 +65,7 @@ export type ProjectProgress = {
   total: number;
   requiredPhotos: number;
   requiredPhotosDone: number;
+  followUps: number;
   pct: number;
 };
 
@@ -77,6 +78,7 @@ export function computeProgress(
   let total = 0;
   let requiredPhotos = 0;
   let requiredPhotosDone = 0;
+  let followUps = 0;
   for (const s of template.sections) {
     const p = sectionProgress(s, input);
     sections.set(s.key, p);
@@ -84,8 +86,9 @@ export function computeProgress(
     total += p.total;
     requiredPhotos += p.requiredPhotos;
     requiredPhotosDone += p.requiredPhotosDone;
+    followUps += p.followUps;
   }
-  return { sections, done, total, requiredPhotos, requiredPhotosDone, pct: total ? Math.round((done / total) * 100) : 0 };
+  return { sections, done, total, requiredPhotos, requiredPhotosDone, followUps, pct: total ? Math.round((done / total) * 100) : 0 };
 }
 
 /** Lightweight progress for the project list. */

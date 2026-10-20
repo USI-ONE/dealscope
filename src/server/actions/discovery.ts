@@ -249,6 +249,7 @@ const answerValueSchema = z.object({
     ])
     .optional(),
   extras: z.record(z.union([z.string().max(2_000), z.number(), z.null()])).optional(),
+  followUp: z.boolean().optional(),
 });
 
 export const saveDiscoveryAnswer = authedAction

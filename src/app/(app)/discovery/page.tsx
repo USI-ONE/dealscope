@@ -49,6 +49,7 @@ export default async function DiscoveryListPage() {
           <span>
             {r.progress.requiredPhotosDone}/{r.progress.requiredPhotos} required shots
           </span>
+          {r.progress.followUps > 0 && <span className="text-amber-600">{r.progress.followUps} follow-ups</span>}
           {r.project.scheduledDate && <span>{r.project.scheduledDate}</span>}
         </div>
       </div>

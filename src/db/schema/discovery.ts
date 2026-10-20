@@ -96,6 +96,8 @@ export const discoveryProjects = pgTable(
 export type DiscoveryAnswerValue = {
   v?: string | number | boolean | string[] | Record<string, string> | null;
   extras?: Record<string, string | number | null>;
+  /** Couldn't be answered on site — counts as addressed, tracked as an open follow-up. */
+  followUp?: boolean;
 };
 
 export const discoveryAnswers = pgTable(

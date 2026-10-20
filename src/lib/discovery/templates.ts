@@ -107,6 +107,7 @@ export function isFieldComplete(
 ): boolean {
   if (answer?.notApplicable) return true;
   if (field.type === "photo") return photoCount > 0;
+  if (answer?.value?.followUp) return true;
   return hasValue(answer?.value?.v);
 }
 
@@ -122,6 +123,8 @@ export type SectionProgress = {
   total: number;
   requiredPhotos: number;
   requiredPhotosDone: number;
+  /** Questions marked "follow up" (counted in `done`, listed separately). */
+  followUps: number;
   na: boolean;
 };
 
@@ -135,11 +138,13 @@ export function sectionProgress(section: SectionDef, input: ProgressInput): Sect
   let total = 0;
   let requiredPhotos = 0;
   let requiredPhotosDone = 0;
+  let followUps = 0;
   for (const f of sectionFields(section)) {
     total++;
     const photos = input.photoCounts.get(f.questionKey) ?? 0;
     const answer = input.answers.get(f.questionKey);
     if (na || isFieldComplete(f, answer, photos)) done++;
+    if (!na && !answer?.notApplicable && answer?.value?.followUp) followUps++;
     if (photoMode(f) === "required") {
       requiredPhotos++;
       if (na || photos > 0 || answer?.notApplicable) requiredPhotosDone++;
@@ -149,7 +154,7 @@ export function sectionProgress(section: SectionDef, input: ProgressInput): Sect
     total++;
     if (na || (input.recordCounts.get(t.key) ?? 0) > 0) done++;
   }
-  return { done, total, requiredPhotos, requiredPhotosDone, na };
+  return { done, total, requiredPhotos, requiredPhotosDone, followUps, na };
 }
 
 export function recordTitle(table: TableDef, data: Record<string, string>): string {

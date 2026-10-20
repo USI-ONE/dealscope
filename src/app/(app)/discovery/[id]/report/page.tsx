@@ -69,7 +69,7 @@ export default async function DiscoveryReportPage({ params }: { params: Promise<
             .join(" · ")}
         </p>
         <p className="text-sm">
-          {progress.pct}% captured · {progress.requiredPhotosDone}/{progress.requiredPhotos} required photos · {photoRows.length} photos ·{" "}
+          {progress.pct}% captured · {progress.requiredPhotosDone}/{progress.requiredPhotos} required photos · {progress.followUps} follow-ups · {photoRows.length} photos ·{" "}
           {recordRows.length} inventory records
         </p>
         {project.summary && <p className="whitespace-pre-wrap pt-2 text-[15px] leading-relaxed">{project.summary}</p>}

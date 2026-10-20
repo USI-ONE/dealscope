@@ -6,6 +6,7 @@ import {
   Camera,
   ChevronLeft,
   ChevronRight,
+  CircleHelp,
   FileSpreadsheet,
   FileText,
   MapPin,
@@ -143,6 +144,15 @@ export default async function DiscoveryHubPage({ params }: { params: Promise<{ i
               />
             </div>
           </div>
+          {progress.followUps > 0 && (
+            <Link
+              href={`/discovery/${project.id}/follow-ups`}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-full bg-amber-500/10 px-3 text-sm font-medium text-amber-700 dark:text-amber-400"
+            >
+              <CircleHelp className="size-4" /> {progress.followUps} follow-up{progress.followUps === 1 ? "" : "s"} open
+              <ChevronRight className="size-4" />
+            </Link>
+          )}
         </div>
       </div>
 
@@ -253,6 +263,12 @@ export default async function DiscoveryHubPage({ params }: { params: Promise<{ i
                       </span>
                     </span>
                   </span>
+                  {p.followUps > 0 && (
+                    <span className="flex items-center gap-0.5 text-xs tabular-nums text-amber-600" title="Open follow-ups">
+                      <CircleHelp className="size-3.5" />
+                      {p.followUps}
+                    </span>
+                  )}
                   {p.requiredPhotos > 0 && !p.na && (
                     <span
                       className={cn(

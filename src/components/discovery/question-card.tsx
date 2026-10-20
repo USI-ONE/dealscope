@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle2, CloudOff, Loader2, MessageSquarePlus, Sparkles } from "lucide-react";
+import { CheckCircle2, CircleHelp, CloudOff, Loader2, MessageSquarePlus, Sparkles } from "lucide-react";
 import type { DiscoveryAnswerValue } from "@/db/schema/discovery";
 import { EXTRA_DEFS, hasValue, isFieldComplete, photoMode, type AnswerState } from "@/lib/discovery/templates";
 import type { ResolvedField } from "@/lib/discovery/types";
@@ -42,14 +42,15 @@ export function QuestionCard({
   const [value, setValue] = useState<V>(initial?.value?.v);
   const [extras, setExtras] = useState<Record<string, string | number | null>>(initial?.value?.extras ?? {});
   const [na, setNa] = useState(initial?.notApplicable ?? false);
+  const [followUp, setFollowUp] = useState(initial?.value?.followUp ?? false);
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [showNotes, setShowNotes] = useState(!!initial?.notes);
   const [touched, setTouched] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const latest = useRef({ value, extras, na, notes });
+  const latest = useRef({ value, extras, na, notes, followUp });
   const cardRef = useRef<HTMLDivElement>(null);
 
-  latest.current = { value, extras, na, notes };
+  latest.current = { value, extras, na, notes, followUp };
 
   useEffect(() => {
     if (highlight) cardRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
@@ -73,7 +74,7 @@ export function QuestionCard({
     outbox.saveAnswer({
       projectId,
       questionKey: field.questionKey,
-      value: { v: s.value ?? null, extras: s.extras },
+      value: { v: s.value ?? null, extras: s.extras, ...(s.followUp ? { followUp: true } : {}) },
       notApplicable: s.na,
       notes: s.notes || null,
     });
@@ -91,13 +92,18 @@ export function QuestionCard({
   }
 
   const photos = useTargetPhotos({ questionKey: field.questionKey }, serverPhotos);
-  const complete = isFieldComplete(field, { value: { v: value }, notApplicable: na, notes }, photos.length);
+  const complete = isFieldComplete(field, { value: { v: value, followUp }, notApplicable: na, notes }, photos.length);
   const pending = outbox.isPending(`answer:${projectId}:${field.questionKey}`) || timer.current !== null;
   const mode = photoMode(field);
 
   const setV = (v: V, immediate = false) => {
     setValue(v);
     latest.current.value = v;
+    // A real answer resolves the follow-up.
+    if (hasValue(v) && latest.current.followUp) {
+      setFollowUp(false);
+      latest.current.followUp = false;
+    }
     schedule(immediate);
   };
 
@@ -161,7 +167,7 @@ export function QuestionCard({
       id={`q-${field.questionKey}`}
       className={cn(
         "scroll-mt-28 rounded-2xl border bg-card p-4 shadow-sm transition-colors",
-        highlight ? "border-primary ring-2 ring-primary/30" : "border-border",
+        highlight ? "border-primary ring-2 ring-primary/30" : followUp ? "border-amber-500/60" : "border-border",
         na && "bg-muted/40",
       )}
     >
@@ -180,6 +186,8 @@ export function QuestionCard({
             ) : (
               <CloudOff className="size-4 text-amber-500" aria-label="Saved on device" />
             )
+          ) : followUp && !na ? (
+            <CircleHelp className="size-5 text-amber-500" aria-label="Follow up" />
           ) : complete ? (
             <CheckCircle2 className="size-5 text-emerald-600" aria-label={touched ? "Saved" : "Answered"} />
           ) : null}
@@ -258,6 +266,10 @@ export function QuestionCard({
               const next = !na;
               setNa(next);
               latest.current.na = next;
+              if (next) {
+                setFollowUp(false);
+                latest.current.followUp = false;
+              }
               schedule(true);
             }}
             className={cn(
@@ -268,6 +280,30 @@ export function QuestionCard({
           >
             N/A
           </button>
+          {!["photo", "signature", "checklist"].includes(field.type) && (
+            <button
+              type="button"
+              onClick={() => {
+                const next = !followUp;
+                setFollowUp(next);
+                latest.current.followUp = next;
+                if (next) {
+                  setNa(false);
+                  latest.current.na = false;
+                  setShowNotes(true);
+                }
+                schedule(true);
+              }}
+              className={cn(
+                "flex min-h-9 items-center gap-1.5 rounded-full border px-3.5 text-sm font-medium active:scale-95",
+                followUp ? "border-amber-500 bg-amber-500 text-white" : "border-border text-muted-foreground",
+              )}
+              aria-pressed={followUp}
+              title="Couldn't answer on site — track it as a follow-up"
+            >
+              <CircleHelp className="size-4" /> Follow up
+            </button>
+          )}
           {!showNotes && (
             <button
               type="button"
