@@ -28,6 +28,31 @@ const LEVELS = ["Blocker", "High", "Medium", "Low"];
 const ACTION_ORDER = ["Replace", "Decommission", "Needs-eval", "Reuse-reconfig"];
 /** Inventory tables whose rows become work items when not marked Keep. */
 const WORK_TABLES = ["aps", "access_switches", "cameras", "doors", "printers", "rooms", "servers", "workstations", "idfs"];
+/**
+ * Open questions the crew can't arrive without: who the circuits and phones
+ * belong to (and the account / port paperwork to cut over), the closet's
+ * power and grounding, Wi-Fi to recreate, and the alarm account so they can
+ * work after hours. Each comes with why it matters on install day.
+ */
+const CREW_NEEDS: Record<string, string> = {
+  "wan.p_carrier": "Who to call for the circuit and cutover",
+  "wan.p_account": "Carrier will ask for it on any ticket",
+  "wan.p_ips": "Static IPs must be re-applied on the new firewall",
+  "wan.loa": "New circuit / LOA lead time",
+  "wan.cutover_window": "Book the carrier for cutover",
+  "firewall.dhcp": "Know what hands out addresses before replacing the router",
+  "mdf.circuits": "Whether a new circuit is needed for the rack / UPS",
+  "mdf.breaker_panel": "Where to kill / add power for the closet",
+  "mdf.tmgb": "Grounding for the new rack",
+  "facility.grounding": "Grounding for the new rack",
+  "wireless.ssids": "Recreate network names so devices reconnect",
+  "wireless.ssid_auth": "Wi-Fi passwords / auth to carry over",
+  "voice.hosted_vendor": "Phone provider to coordinate the move",
+  "voice.did": "Numbers that must keep working",
+  "voice.porting_loa": "Number porting paperwork",
+  "alarms.account": "Alarm account / codes for after-hours work",
+  "cameras.storage": "Footage to keep before swapping the recorder",
+};
 /** Required-photo slots worth printing for the crew, in walking order. */
 const KEY_SHOTS = [
   "photos.exterior",
@@ -124,18 +149,25 @@ export default async function InstallBriefPage({ params }: { params: Promise<{ i
     .filter((d) => d.n > 0);
   const dropTotal = drops.reduce((s, d) => s + d.n, 0);
 
-  // Open follow-ups, to clear before the trip.
-  const followUps = template.sections
+  // Open follow-ups: the few the crew needs before the trip, the rest in the appendix.
+  const openFields = template.sections
     .filter((s) => !na.has(s.key))
-    .map((s) => ({
-      title: s.title,
-      items: sectionFields(s).filter((f) => {
-        const a = answers.get(f.questionKey);
-        return a && !a.notApplicable && a.value?.followUp;
-      }),
-    }))
-    .filter((g) => g.items.length);
-  const followUpCount = followUps.reduce((n, g) => n + g.items.length, 0);
+    .flatMap((s) => sectionFields(s).map((f) => ({ f, section: s.title })))
+    .filter(({ f }) => isOpen(f.questionKey));
+  const crewNeeds = Object.keys(CREW_NEEDS).flatMap((k) => {
+    const hit = openFields.find(({ f }) => f.questionKey === k);
+    return hit ? [{ ...hit, why: CREW_NEEDS[k] }] : [];
+  });
+  const appendix = Object.entries(
+    openFields
+      .filter(({ f }) => !(f.questionKey in CREW_NEEDS))
+      .reduce<Record<string, string[]>>((acc, { f, section }) => {
+        (acc[section] ??= []).push(f.label);
+        return acc;
+      }, {}),
+  );
+  const followUpCount = openFields.length;
+  const appendixCount = followUpCount - crewNeeds.length;
 
   const shots = KEY_SHOTS.map((k) => ({
     key: k,
@@ -228,7 +260,7 @@ export default async function InstallBriefPage({ params }: { params: Promise<{ i
             `${risks.length} risks`,
             `${workItems.length} items to replace / remove`,
             dropTotal ? `${dropTotal} new drops` : null,
-            followUpCount ? `${followUpCount} open questions` : null,
+            crewNeeds.length ? `${crewNeeds.length} to confirm before install` : null,
           ]
             .filter(Boolean)
             .join(" · ")}
@@ -340,25 +372,31 @@ export default async function InstallBriefPage({ params }: { params: Promise<{ i
         </section>
       )}
 
-      {followUpCount > 0 && (
-        <section className="space-y-2">
-          <H2 n={++n}>Confirm before the install ({followUpCount})</H2>
-          <p className="text-sm text-muted-foreground">These couldn’t be answered on the walk. Get them from the client, carrier or vendor before scheduling the crew.</p>
-          <div className="columns-1 gap-6 text-sm sm:columns-2 print:columns-2">
-            {followUps.map((g) => (
-              <div key={g.title} className="mb-3 break-inside-avoid">
-                <p className="font-semibold">{g.title}</p>
-                <ul className="mt-0.5 space-y-0.5">
-                  {g.items.map((f) => (
-                    <li key={f.questionKey} className="flex gap-1.5">
-                      <span className="mt-1 inline-block size-3 shrink-0 rounded-sm border border-foreground/60" />
-                      <span>{f.label}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
+      {crewNeeds.length > 0 && (
+        <section className="space-y-2 break-inside-avoid">
+          <H2 n={++n}>Confirm before the install ({crewNeeds.length})</H2>
+          <p className="text-sm text-muted-foreground">
+            The crew needs these before going on site. Get them from the client, carrier or vendor when scheduling.
+          </p>
+          <table className="w-full border-collapse text-sm">
+            <tbody>
+              {crewNeeds.map(({ f, section, why }) => (
+                <tr key={f.questionKey} className="break-inside-avoid border-b border-border/60 align-top">
+                  <td className="w-8 py-1.5 pr-2">
+                    <span className="inline-block size-4 rounded-sm border-2 border-foreground/60" />
+                  </td>
+                  <td className="py-1.5 pr-2">
+                    <span className="font-medium">{f.label}</span>
+                    <span className="block text-xs text-muted-foreground">{section}</span>
+                  </td>
+                  <td className="py-1.5 text-muted-foreground">{why}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {appendixCount > 0 && (
+            <p className="text-xs text-muted-foreground">{appendixCount} other open questions are listed in the appendix.</p>
+          )}
         </section>
       )}
 
@@ -401,6 +439,25 @@ export default async function InstallBriefPage({ params }: { params: Promise<{ i
           <div className="mt-1 h-24 rounded border border-foreground/40" />
         </div>
       </section>
+
+      {appendix.length > 0 && (
+        <section className="space-y-2 print:break-before-page">
+          <h2 className="border-b border-border pb-1 text-base font-bold">Appendix — other open questions ({appendixCount})</h2>
+          <p className="text-xs text-muted-foreground">Not needed for the install trip; still open from the walk.</p>
+          <div className="columns-1 gap-6 text-xs sm:columns-2 print:columns-3">
+            {appendix.map(([section, labels]) => (
+              <div key={section} className="mb-2.5 break-inside-avoid">
+                <p className="font-semibold">{section}</p>
+                <ul className="mt-0.5 list-disc space-y-0.5 pl-4 text-muted-foreground">
+                  {labels.map((l) => (
+                    <li key={l}>{l}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <p className="border-t border-border pt-3 text-xs text-muted-foreground">
         Generated {new Date().toLocaleString("en-US", { timeZone: "America/Denver" })} from the DealScope site walk ·{" "}
