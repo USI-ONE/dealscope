@@ -10,6 +10,7 @@ import { CameraSheet } from "./camera-sheet";
 import { useOutbox } from "./outbox-provider";
 import { PhotoViewer, type ViewerPhoto } from "./photo-viewer";
 import { useDiscoveryProject, type ServerPhoto } from "./project-context";
+import { photoSrc } from "@/lib/discovery/photo-variants";
 
 function sameTarget(a: PhotoTarget, b: PhotoTarget) {
   return (a.questionKey ?? null) === (b.questionKey ?? null) && (a.recordId ?? null) === (b.recordId ?? null);
@@ -143,7 +144,7 @@ export function PhotoStrip({
             aria-label={`View photo ${i + 1}`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={p.url} alt="" loading="lazy" className="size-full object-cover" />
+            <img src={photoSrc(p.url, "thumb")} alt="" loading="lazy" className="size-full object-cover" />
             {p.status !== "synced" && (
               <span className="absolute inset-x-0 bottom-0 flex items-center justify-center bg-black/55 py-0.5 text-white">
                 {outbox.online ? <Loader2 className="size-3 animate-spin" /> : <CloudOff className="size-3" />}

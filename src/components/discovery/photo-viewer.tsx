@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, Loader2, Trash2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Expand, Loader2, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { deleteDiscoveryPhotos, updateDiscoveryPhoto } from "@/server/actions/discovery";
 import { useDiscoveryProject } from "./project-context";
+import { photoSrc } from "@/lib/discovery/photo-variants";
 
 export type ViewerPhoto = {
   id: string;
@@ -31,6 +32,13 @@ export function PhotoViewer({
   const router = useRouter();
   const { projectId, canEdit } = useDiscoveryProject();
   const photo = photos[index];
+
+  // Warm the neighbours so swiping feels instant.
+  useEffect(() => {
+    for (const n of [photos[index - 1], photos[index + 1]]) {
+      if (n) new Image().src = photoSrc(n.url, "md");
+    }
+  }, [photos, index]);
   const [caption, setCaption] = useState(photo?.caption ?? "");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -103,6 +111,18 @@ export function PhotoViewer({
             {!synced ? " · waiting to upload" : ""}
           </p>
         </div>
+        {synced && photo.url.startsWith("/") && (
+          <a
+            href={photo.url}
+            target="_blank"
+            rel="noreferrer"
+            className="flex size-11 items-center justify-center rounded-full bg-white/10"
+            aria-label="Open full size"
+            title="Open full size"
+          >
+            <Expand className="size-5" />
+          </a>
+        )}
         {canEdit && synced ? (
           <button
             type="button"
@@ -135,7 +155,7 @@ export function PhotoViewer({
         }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={photo.url} alt={photo.caption ?? ""} className="max-h-full max-w-full object-contain" />
+        <img src={photoSrc(photo.url, "md")} alt={photo.caption ?? ""} className="max-h-full max-w-full object-contain" />
         {index > 0 && (
           <button
             type="button"

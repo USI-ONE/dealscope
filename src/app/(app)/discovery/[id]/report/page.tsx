@@ -10,6 +10,7 @@ import { requireRole } from "@/lib/auth-helpers";
 import { getProject, loadProjectData } from "@/lib/discovery/load";
 import { answerToText, sectionFields, templateIndex } from "@/lib/discovery/templates";
 import { PrintButton } from "@/components/discovery/print-button";
+import { photoSrc } from "@/lib/discovery/photo-variants";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Site discovery report" };
@@ -43,7 +44,7 @@ export default async function DiscoveryReportPage({ params }: { params: Promise<
         {list.map((p) => (
           <a key={p.id} href={photoUrl(project.id, p.id)} target="_blank" rel="noreferrer" className="block">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={photoUrl(project.id, p.id)} alt={p.caption ?? ""} className="h-24 w-32 rounded border border-border object-cover print:h-28 print:w-36" />
+            <img src={photoSrc(photoUrl(project.id, p.id), "thumb")} alt={p.caption ?? ""} className="h-24 w-32 rounded border border-border object-cover print:h-28 print:w-36" />
             {p.caption && <span className="block max-w-32 truncate text-[10px] text-muted-foreground">{p.caption}</span>}
           </a>
         ))}

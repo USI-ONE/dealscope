@@ -27,6 +27,7 @@ import { cn } from "@/lib/utils";
 import { ChoiceChips, INPUT_CLS, TEXTAREA_CLS } from "./field-inputs";
 import { useDiscoveryProject } from "./project-context";
 import { TopologySvg } from "./topology-svg";
+import { photoSrc } from "@/lib/discovery/photo-variants";
 
 const NODE_TYPES = ["internet", "modem", "firewall", "router", "switch", "ap", "server", "nas", "nvr", "camera", "printer", "workstation", "phone", "iot", "cloud", "other"];
 const MEDIA = ["copper", "fiber", "wireless", "vpn", "unknown"];
@@ -333,7 +334,7 @@ export function TopologyEditor({
             {sources.map((s) => (
               <a key={s.id} href={s.url} target="_blank" rel="noreferrer" className="block size-24 shrink-0 overflow-hidden rounded-xl bg-muted">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={s.url} alt="Source" className="size-full object-cover" />
+                <img src={photoSrc(s.url, "thumb")} alt="Source" className="size-full object-cover" />
               </a>
             ))}
           </div>

@@ -11,6 +11,7 @@ import { ColumnInput } from "./field-inputs";
 import { useOutbox } from "./outbox-provider";
 import { PhotoStrip, useTargetPhotos } from "./photo-strip";
 import { useDiscoveryProject, type ServerPhoto } from "./project-context";
+import { photoSrc } from "@/lib/discovery/photo-variants";
 
 export type RecordRow = {
   id: string;
@@ -51,7 +52,7 @@ function RecordCard({
     >
       {merged[0] ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={merged[0].url} alt="" className="size-14 shrink-0 rounded-xl object-cover" />
+        <img src={photoSrc(merged[0].url, "thumb")} alt="" className="size-14 shrink-0 rounded-xl object-cover" />
       ) : (
         <span className="flex size-14 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
           <Camera className="size-5" />

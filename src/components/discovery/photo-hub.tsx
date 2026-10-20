@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { PhotoStrip, useTargetPhotos } from "./photo-strip";
 import { PhotoViewer, type ViewerPhoto } from "./photo-viewer";
 import type { ServerPhoto } from "./project-context";
+import { photoSrc } from "@/lib/discovery/photo-variants";
 
 export type GalleryPhoto = ServerPhoto & { label: string };
 export type ShotGroup = {
@@ -138,7 +139,7 @@ export function PhotoHub({
                     className="group relative aspect-square overflow-hidden rounded-xl bg-muted"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={p.url} alt={p.caption ?? p.label} loading="lazy" className="size-full object-cover" />
+                    <img src={photoSrc(p.url, "thumb")} alt={p.caption ?? p.label} loading="lazy" className="size-full object-cover" />
                     <span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/70 to-transparent px-1.5 pb-1 pt-4 text-left text-[10px] font-medium text-white">
                       {p.caption || p.label}
                     </span>

@@ -26,6 +26,7 @@ import {
 } from "@/db/schema";
 import { getTemplate, templateIndex } from "@/lib/discovery/templates";
 import { photoPathPrefix } from "@/lib/discovery/paths";
+import { variantPath } from "@/lib/discovery/photo-variants";
 import { authedAction, authorize, PublicError } from "@/server/safe-action";
 
 async function assertProject(projectId: string, organizationId: string) {
@@ -369,7 +370,8 @@ export const deleteDiscoveryRecord = authedAction
 async function deleteBlobs(urls: string[]) {
   if (!urls.length || !process.env.BLOB_READ_WRITE_TOKEN) return;
   try {
-    await del(urls);
+    // Downsized copies sit beside each original (same URL + suffix).
+    await del(urls.flatMap((u) => [u, variantPath(u, "thumb"), variantPath(u, "md")]));
   } catch (err) {
     // Orphaned blobs are harmless; never fail the user action over them.
     console.error("discovery: blob delete failed", err);
