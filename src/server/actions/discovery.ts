@@ -369,6 +369,15 @@ export const deleteDiscoveryRecord = authedAction
  * ========================================================================== */
 async function deleteBlobs(urls: string[]) {
   if (!urls.length || !process.env.BLOB_READ_WRITE_TOKEN) return;
+  // One file can be linked from several places (e.g. a room photo also
+  // filed under a required-photo slot) — keep it while any row still uses it.
+  const stillUsed = await db
+    .select({ url: discoveryPhotos.url })
+    .from(discoveryPhotos)
+    .where(inArray(discoveryPhotos.url, urls));
+  const used = new Set(stillUsed.map((r) => r.url));
+  urls = urls.filter((u) => !used.has(u));
+  if (!urls.length) return;
   try {
     // Downsized copies sit beside each original (same URL + suffix).
     await del(urls.flatMap((u) => [u, variantPath(u, "thumb"), variantPath(u, "md")]));
