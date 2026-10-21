@@ -12,6 +12,8 @@ export type ServerPhoto = {
   sectionKey: string | null;
   widthPx: number | null;
   heightPx: number | null;
+  /** Included in the client assessment's photos. */
+  inReport?: boolean;
 };
 
 type ProjectCtx = {

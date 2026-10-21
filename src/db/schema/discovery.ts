@@ -188,6 +188,8 @@ export const discoveryPhotos = pgTable(
     heightPx: integer("height_px"),
     caption: text("caption"),
     takenAt: timestamp("taken_at", { withTimezone: true }),
+    /** Picked by the walker to appear in the client assessment. */
+    inReport: boolean("in_report").notNull().default(false),
 
     uploadedByMembershipId: uuid("uploaded_by_membership_id").references(
       () => memberships.id,

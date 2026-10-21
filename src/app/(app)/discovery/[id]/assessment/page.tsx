@@ -5,11 +5,13 @@
  * English summary, business impact and phased roadmap are written by
  * Claude on request and cached (refresh when the walk changes).
  */
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth-helpers";
 import { getProject } from "@/lib/discovery/load";
 import { loadSiteAssessment } from "@/lib/discovery/assessment-store";
 import { COST_LEGEND, COSTS, GRADE_STYLE, PHASES, type Cost, type Phase } from "@/lib/discovery/assessment";
+import { recordTitle, templateIndex } from "@/lib/discovery/templates";
 import { photoUrl } from "@/lib/discovery/paths";
 import { photoSrc } from "@/lib/discovery/photo-variants";
 import { isAiConfigured } from "@/lib/ai/anthropic";
@@ -55,10 +57,29 @@ export default async function SiteAssessmentPage({ params }: { params: Promise<{
     ? n.roadmap.map((r) => ({ ...r, area: areaTitle.get(r.area) ?? r.area }))
     : a.risks.map((r) => ({ title: r.risk, why: "", area: r.area, phase: LEVEL_PHASE[r.level] ?? "Next 90 days", cost: null }));
 
-  const evidence = EVIDENCE.flatMap((k) => {
-    const p = data.photoRows.find((x) => x.questionKey === k);
-    return p ? [p] : [];
-  }).slice(0, 6);
+  // Photos the walker ticked on the Photos tab (one per file); if none are
+  // picked yet, fall back to a few of the required shots.
+  const idx = templateIndex(data.template);
+  const recordById = new Map(data.recordRows.map((r) => [r.id, r]));
+  const labelOf = (p: (typeof data.photoRows)[number]) => {
+    if (p.caption) return p.caption;
+    if (p.questionKey) return idx.fields.get(p.questionKey)?.label ?? "";
+    const r = p.recordId ? recordById.get(p.recordId) : undefined;
+    const t = r ? idx.tables.get(r.tableKey) : undefined;
+    return r && t ? recordTitle(t.table, r.data) : "";
+  };
+  const seen = new Set<string>();
+  const picked = data.photoRows
+    .filter((p) => p.inReport && !seen.has(p.url) && seen.add(p.url))
+    .sort((x, y) => (x.takenAt?.getTime() ?? 0) - (y.takenAt?.getTime() ?? 0));
+  const evidence = (
+    picked.length
+      ? picked
+      : EVIDENCE.flatMap((k) => {
+          const p = data.photoRows.find((x) => x.questionKey === k);
+          return p ? [p] : [];
+        }).slice(0, 6)
+  ).map((p) => ({ id: p.id, label: labelOf(p) }));
 
   const aiReady = isAiConfigured();
   const completed = tasks
@@ -269,17 +290,24 @@ export default async function SiteAssessmentPage({ params }: { params: Promise<{
       )}
 
       {evidence.length > 0 && (
-        <section className="space-y-2">
-          <h2 className="text-xl font-bold">From the site walk</h2>
+        <section className="space-y-3">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <h2 className="text-xl font-bold">From the site walk</h2>
+            <Link href={`/discovery/${project.id}/photos?tab=all`} className="text-sm font-medium text-primary hover:underline print:hidden">
+              {picked.length ? `Change photos (${picked.length} selected)` : "Choose photos for this report"}
+            </Link>
+          </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 print:grid-cols-3">
             {evidence.map((p) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={p.id}
-                src={photoSrc(photoUrl(project.id, p.id), "md")}
-                alt=""
-                className="aspect-[4/3] w-full break-inside-avoid rounded-lg border border-border object-cover"
-              />
+              <figure key={p.id} className="break-inside-avoid space-y-1">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={photoSrc(photoUrl(project.id, p.id), "md")}
+                  alt={p.label}
+                  className="aspect-[4/3] w-full rounded-lg border border-border object-cover"
+                />
+                {p.label && <figcaption className="text-xs text-muted-foreground">{p.label}</figcaption>}
+              </figure>
             ))}
           </div>
         </section>

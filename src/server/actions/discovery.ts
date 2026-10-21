@@ -472,6 +472,29 @@ export const registerDiscoveryPhoto = authedAction
     return { ok: true };
   });
 
+/**
+ * Include / exclude a photo from the client assessment. Applies to every
+ * row sharing the same file (a room photo linked into a required-shot
+ * slot is one picture), so it can't end up half-selected.
+ */
+export const setPhotoInReport = authedAction
+  .schema(z.object({ projectId: z.string().uuid(), photoId: z.string().uuid(), inReport: z.boolean() }))
+  .action(async ({ parsedInput, ctx }) => {
+    await authorize("update", "project");
+    const p = await assertProject(parsedInput.projectId, ctx.organization.id);
+    const photo = await db.query.discoveryPhotos.findFirst({
+      where: and(eq(discoveryPhotos.id, parsedInput.photoId), eq(discoveryPhotos.projectId, p.id)),
+      columns: { url: true },
+    });
+    if (!photo) throw new PublicError("Photo not found");
+    await db
+      .update(discoveryPhotos)
+      .set({ inReport: parsedInput.inReport, updatedAt: new Date() })
+      .where(and(eq(discoveryPhotos.projectId, p.id), eq(discoveryPhotos.url, photo.url)));
+    revalidatePath(`/discovery/${p.id}/assessment`);
+    return { ok: true };
+  });
+
 export const updateDiscoveryPhoto = authedAction
   .schema(
     z.object({

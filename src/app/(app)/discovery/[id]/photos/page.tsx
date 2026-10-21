@@ -8,8 +8,15 @@ import { PhotoHub, type GalleryPhoto, type ShotGroup } from "@/components/discov
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Site walk photos" };
 
-export default async function DiscoveryPhotosPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function DiscoveryPhotosPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const { id } = await params;
+  const { tab } = await searchParams;
   const ctx = await requireRole("member");
   const project = await getProject(id, ctx.organization.id);
   if (!project) notFound();
@@ -42,6 +49,7 @@ export default async function DiscoveryPhotosPage({ params }: { params: Promise<
       sectionKey,
       widthPx: p.widthPx,
       heightPx: p.heightPx,
+      inReport: p.inReport,
       label,
     };
   });
@@ -66,7 +74,7 @@ export default async function DiscoveryPhotosPage({ params }: { params: Promise<
   return (
     <div className="space-y-4 pb-10">
       <h2 className="text-xl font-semibold">Photos</h2>
-      <PhotoHub photos={photos} shotGroups={shotGroups} sectionTitles={sectionTitles} />
+      <PhotoHub photos={photos} shotGroups={shotGroups} sectionTitles={sectionTitles} initialTab={tab === "all" ? "all" : "shots"} />
     </div>
   );
 }
