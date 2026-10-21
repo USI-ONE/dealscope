@@ -20,6 +20,8 @@ import { GenerateNarrativeButton } from "@/components/discovery/assessment-contr
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
+// The "Write summary" server action runs in this page's function; Claude takes ~30-60s.
+export const maxDuration = 300;
 export const metadata = { title: "Site assessment" };
 
 const EVIDENCE = [

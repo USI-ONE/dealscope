@@ -20,6 +20,8 @@ import { GenerateNarrativeButton, PortfolioPicker } from "@/components/discovery
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
+// The "Write summary" server action runs in this page's function; Claude takes ~30-60s.
+export const maxDuration = 300;
 export const metadata = { title: "Portfolio assessment" };
 
 export default async function PortfolioPage({ searchParams }: { searchParams: Promise<{ ids?: string }> }) {
