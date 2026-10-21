@@ -106,7 +106,7 @@ export default async function DiligenceEngagementPage({
   const [{ id }, sp] = await Promise.all([params, searchParams]);
   const tab = ((sp as Record<string, string>).tab ?? "it") as TabId;
 
-  const ctx = await requireContext();
+  const ctx = await requireContext({ allowExternal: true });
 
   const engagement = await db.query.diligenceEngagements.findFirst({
     where: and(

@@ -12,6 +12,7 @@ import {
 } from "@/db/schema";
 import { authedAction, authorize, PublicError } from "@/server/safe-action";
 import { generateMonthlyBillablesFromSnapshots } from "@/lib/billing/generate-from-snapshots";
+import { assertOwned } from "@/server/ownership";
 
 /* ============================================================================
  * VENDOR BILLS
@@ -264,6 +265,7 @@ export const allocateBillLineToClient = authedAction
   .schema(allocateSchema)
   .action(async ({ parsedInput, ctx }) => {
     await authorize("create", "billable");
+    await assertOwned(clients, parsedInput.clientId, ctx.organization.id, "Client");
     const line = await db.query.vendorBillLines.findFirst({
       where: and(
         eq(vendorBillLines.id, parsedInput.lineId),

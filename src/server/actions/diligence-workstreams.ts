@@ -4,13 +4,15 @@ import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { diligenceMilestones, diligenceWorkstreamTasks } from "@/db/schema";
-import { authedAction, authorize, PublicError } from "@/server/safe-action";
+import { guestAction, authorize, PublicError } from "@/server/safe-action";
+import { assertOwned } from "@/server/ownership";
+import { diligenceEngagements, memberships } from "@/db/schema";
 
 /* ============================================================================
  * WORKSTREAM TASKS
  * ========================================================================== */
 
-export const createWorkstreamTask = authedAction
+export const createWorkstreamTask = guestAction
   .schema(
     z.object({
       engagementId: z.string().uuid(),
@@ -24,6 +26,8 @@ export const createWorkstreamTask = authedAction
   )
   .action(async ({ parsedInput, ctx }) => {
     await authorize("create", "diligence");
+    await assertOwned(diligenceEngagements, parsedInput.engagementId, ctx.organization.id, "Engagement");
+    await assertOwned(memberships, parsedInput.ownerMembershipId, ctx.organization.id, "Member");
     const [{ maxPos }] = await db
       .select({ maxPos: sql<number>`coalesce(max(position), -1)` })
       .from(diligenceWorkstreamTasks)
@@ -44,7 +48,7 @@ export const createWorkstreamTask = authedAction
     return { task: created };
   });
 
-export const updateWorkstreamTask = authedAction
+export const updateWorkstreamTask = guestAction
   .schema(
     z.object({
       taskId: z.string().uuid(),
@@ -80,7 +84,7 @@ export const updateWorkstreamTask = authedAction
     return { ok: true };
   });
 
-export const deleteWorkstreamTask = authedAction
+export const deleteWorkstreamTask = guestAction
   .schema(z.object({ taskId: z.string().uuid(), engagementId: z.string().uuid() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("delete", "diligence");
@@ -100,7 +104,7 @@ export const deleteWorkstreamTask = authedAction
  * MILESTONES
  * ========================================================================== */
 
-export const createMilestone = authedAction
+export const createMilestone = guestAction
   .schema(
     z.object({
       engagementId: z.string().uuid(),
@@ -111,6 +115,7 @@ export const createMilestone = authedAction
   )
   .action(async ({ parsedInput, ctx }) => {
     await authorize("create", "diligence");
+    await assertOwned(diligenceEngagements, parsedInput.engagementId, ctx.organization.id, "Engagement");
     const [{ maxPos }] = await db
       .select({ maxPos: sql<number>`coalesce(max(position), -1)` })
       .from(diligenceMilestones)
@@ -126,7 +131,7 @@ export const createMilestone = authedAction
     return { milestone: created };
   });
 
-export const completeMilestone = authedAction
+export const completeMilestone = guestAction
   .schema(
     z.object({
       milestoneId: z.string().uuid(),
@@ -153,7 +158,7 @@ export const completeMilestone = authedAction
     return { ok: true };
   });
 
-export const deleteMilestone = authedAction
+export const deleteMilestone = guestAction
   .schema(z.object({ milestoneId: z.string().uuid(), engagementId: z.string().uuid() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("delete", "diligence");

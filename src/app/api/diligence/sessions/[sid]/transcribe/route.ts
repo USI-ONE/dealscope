@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { diligenceSessions } from "@/db/schema";
-import { requireContext } from "@/lib/auth-helpers";
+import { requirePermission } from "@/lib/auth-helpers";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -13,7 +13,7 @@ export async function POST(
   { params }: { params: Promise<{ sid: string }> },
 ) {
   try {
-    const ctx = await requireContext();
+    const ctx = await requirePermission("update", "diligence");
     const { sid } = await params;
 
     const session = await db.query.diligenceSessions.findFirst({

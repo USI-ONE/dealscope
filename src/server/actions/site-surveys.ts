@@ -22,6 +22,7 @@ import {
   siteSurveyPhotos,
   siteSurveys,
 } from "@/db/schema";
+import { isOwnPath, urlMatchesPathname } from "@/lib/security/blob-policy";
 import { authedAction, authorize, PublicError } from "@/server/safe-action";
 
 async function assertSurvey(surveyId: string, organizationId: string) {
@@ -459,6 +460,18 @@ export const registerSurveyPhoto = authedAction
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "client");
     const s = await assertSurvey(parsedInput.surveyId, ctx.organization.id);
+    // Only files in this survey's own folder of our private store — never an
+    // arbitrary URL the server would then fetch with the store's token.
+    let pathname = "";
+    try {
+      pathname = decodeURIComponent(new URL(parsedInput.url).pathname).slice(1);
+    } catch {
+      /* rejected below */
+    }
+    const prefix = `surveys/${ctx.organization.id}/${s.id}/`;
+    if (!isOwnPath(pathname, prefix) || !urlMatchesPathname(parsedInput.url, pathname)) {
+      throw new PublicError("Photo is not stored under this survey");
+    }
     if (parsedInput.itemId) {
       const item = await db.query.siteSurveyItems.findFirst({
         where: and(

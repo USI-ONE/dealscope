@@ -1,5 +1,12 @@
 import { and, eq, gt } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { z } from "zod";
+import { ipFromRequest, rateLimit } from "@/lib/security/rate-limit";
+
+const replySchema = z.object({
+  threadId: z.string().uuid(),
+  content: z.string().trim().min(1).max(10_000),
+});
 import { db } from "@/db";
 import {
   diligenceDialogueMessages,
@@ -13,11 +20,13 @@ export async function POST(
 ) {
   try {
     const { token } = await params;
-    const { threadId, content } = await req.json() as { threadId: string; content: string };
-
-    if (!threadId || !content?.trim()) {
+    const parsed = replySchema.safeParse(await req.json().catch(() => null));
+    if (!parsed.success || !/^[A-Za-z0-9_-]{20,64}$/.test(token)) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     }
+    const { threadId, content } = parsed.data;
+    const limit = await rateLimit(`dealroom-reply:${token}:${ipFromRequest(req)}`, 30, 60 * 60);
+    if (!limit.ok) return NextResponse.json({ error: "Too many replies — try again later." }, { status: 429 });
 
     const invitation = await db.query.diligencePartyInvitations.findFirst({
       where: and(

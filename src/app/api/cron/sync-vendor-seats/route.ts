@@ -19,6 +19,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/db";
 import { organizations } from "@/db/schema";
+import { isAuthorizedCron } from "@/lib/security/cron-auth";
 import { runAllSeatSyncs } from "@/lib/integrations/sync-runner";
 
 export const dynamic = "force-dynamic";
@@ -28,16 +29,7 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 export async function GET(req: NextRequest) {
-  const provided = req.headers.get("authorization") ?? "";
-  const expected = process.env.CRON_SECRET
-    ? `Bearer ${process.env.CRON_SECRET}`
-    : null;
-  const fromVercelCron = req.headers.get("x-vercel-cron") !== null;
-  const authorized =
-    (expected && provided === expected) ||
-    fromVercelCron ||
-    process.env.NODE_ENV !== "production";
-  if (!authorized) {
+  if (!isAuthorizedCron(req)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

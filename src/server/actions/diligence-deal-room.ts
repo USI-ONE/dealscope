@@ -10,14 +10,17 @@ import {
   diligenceParties,
   diligencePartyInvitations,
 } from "@/db/schema";
-import { authedAction, authorize, PublicError } from "@/server/safe-action";
+import { guestAction, authorize, PublicError } from "@/server/safe-action";
 import { isEmailConfigured, sendEmail } from "@/lib/email/graph";
+import { appBaseUrl, emailLayout, escapeHtml } from "@/lib/email/account";
+import { assertOwned } from "@/server/ownership";
+import { diligenceEngagements, memberships } from "@/db/schema";
 
 /* ============================================================================
  * PARTIES
  * ========================================================================== */
 
-export const createParty = authedAction
+export const createParty = guestAction
   .schema(
     z.object({
       engagementId: z.string().uuid(),
@@ -29,6 +32,7 @@ export const createParty = authedAction
   )
   .action(async ({ parsedInput, ctx }) => {
     await authorize("create", "diligence");
+    await assertOwned(diligenceEngagements, parsedInput.engagementId, ctx.organization.id, "Engagement");
     const [party] = await db.insert(diligenceParties).values({
       organizationId: ctx.organization.id,
       engagementId: parsedInput.engagementId,
@@ -40,7 +44,7 @@ export const createParty = authedAction
     return { party };
   });
 
-export const updateParty = authedAction
+export const updateParty = guestAction
   .schema(
     z.object({
       partyId: z.string().uuid(),
@@ -67,7 +71,7 @@ export const updateParty = authedAction
     return { ok: true };
   });
 
-export const deleteParty = authedAction
+export const deleteParty = guestAction
   .schema(z.object({ partyId: z.string().uuid(), engagementId: z.string().uuid() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("delete", "diligence");
@@ -87,7 +91,7 @@ export const deleteParty = authedAction
  * PARTY INVITATIONS
  * ========================================================================== */
 
-export const invitePartyMember = authedAction
+export const invitePartyMember = guestAction
   .schema(
     z.object({
       engagementId: z.string().uuid(),
@@ -95,11 +99,18 @@ export const invitePartyMember = authedAction
       email: z.string().email(),
       name: z.string().max(200).optional().nullable(),
       role: z.enum(["viewer", "contributor"]).default("viewer"),
-      targetCompanyName: z.string().optional(),
+      /** Ignored — the deal name is read from the engagement on the server. */
+      targetCompanyName: z.string().max(300).optional(),
     }),
   )
   .action(async ({ parsedInput, ctx }) => {
     await authorize("create", "diligence");
+    await assertOwned(diligenceEngagements, parsedInput.engagementId, ctx.organization.id, "Engagement");
+    const party = await db.query.diligenceParties.findFirst({
+      where: and(eq(diligenceParties.id, parsedInput.partyId), eq(diligenceParties.engagementId, parsedInput.engagementId), eq(diligenceParties.organizationId, ctx.organization.id)),
+      columns: { id: true },
+    });
+    if (!party) throw new PublicError("Party not found");
     const token = nanoid(48);
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
 
@@ -116,29 +127,30 @@ export const invitePartyMember = authedAction
     }).returning();
 
     if (isEmailConfigured()) {
-      const baseUrl =
-        process.env.AUTH_URL ??
-        (process.env.VERCEL_URL
-          ? `https://${process.env.VERCEL_URL}`
-          : "http://localhost:3000");
-      const link = `${baseUrl}/deal-room/${token}`;
-      const dealName = parsedInput.targetCompanyName ?? "a deal";
+      const engagement = await db.query.diligenceEngagements.findFirst({
+        where: and(eq(diligenceEngagements.id, parsedInput.engagementId), eq(diligenceEngagements.organizationId, ctx.organization.id)),
+        columns: { targetCompanyName: true },
+      });
+      const link = `${appBaseUrl()}/deal-room/${token}`;
+      const dealName = (engagement?.targetCompanyName || "a deal").replace(/[\r\n]+/g, " ").slice(0, 120);
+      const name = parsedInput.name?.trim();
       await sendEmail({
         to: parsedInput.email,
         subject: `You've been invited to the ${dealName} deal room`,
-        htmlBody: `
-          <p>Hi${parsedInput.name ? ` ${parsedInput.name}` : ""},</p>
-          <p>You've been invited to access the deal room for <strong>${dealName}</strong> on DealScope.</p>
-          <p><a href="${link}" style="display:inline-block;padding:10px 20px;background:#000;color:#fff;border-radius:6px;text-decoration:none;">Access deal room</a></p>
-          <p>This link expires in 30 days. Do not share it — it is unique to you.</p>
-        `,
-      }).catch(() => {/* silent */});
+        htmlBody: emailLayout(
+          "You're invited to a deal room",
+          `<p style="margin:0 0 12px 0;">Hi${name ? ` ${escapeHtml(name)}` : ""},</p>
+           <p style="margin:0;">You've been invited to access the deal room for <strong>${escapeHtml(dealName)}</strong> on DealScope.</p>`,
+          { label: "Access deal room", href: link },
+          "This link expires in 30 days. Do not share it — it is unique to you.",
+        ),
+      }).catch((err) => console.error("[deal-room] invite email failed", err));
     }
 
     return { invitation };
   });
 
-export const revokeInvitation = authedAction
+export const revokeInvitation = guestAction
   .schema(z.object({ invitationId: z.string().uuid(), engagementId: z.string().uuid() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("delete", "diligence");
@@ -158,11 +170,11 @@ export const revokeInvitation = authedAction
  * DIALOGUE THREADS
  * ========================================================================== */
 
-export const createDialogueThread = authedAction
+export const createDialogueThread = guestAction
   .schema(
     z.object({
       engagementId: z.string().uuid(),
-      track: z.string().nullable().optional(),
+      track: z.string().max(100).nullable().optional(),
       subject: z.string().min(1).max(500),
       isInternal: z.boolean().default(false),
       assignedToMembershipId: z.string().uuid().optional().nullable(),
@@ -171,6 +183,8 @@ export const createDialogueThread = authedAction
   )
   .action(async ({ parsedInput, ctx }) => {
     await authorize("create", "diligence");
+    await assertOwned(diligenceEngagements, parsedInput.engagementId, ctx.organization.id, "Engagement");
+    await assertOwned(memberships, parsedInput.assignedToMembershipId, ctx.organization.id, "Member");
     const [thread] = await db.insert(diligenceDialogueThreads).values({
       organizationId: ctx.organization.id,
       engagementId: parsedInput.engagementId,
@@ -192,7 +206,7 @@ export const createDialogueThread = authedAction
     return { thread };
   });
 
-export const replyToThread = authedAction
+export const replyToThread = guestAction
   .schema(
     z.object({
       threadId: z.string().uuid(),
@@ -228,7 +242,7 @@ export const replyToThread = authedAction
     return { message };
   });
 
-export const updateThreadStatus = authedAction
+export const updateThreadStatus = guestAction
   .schema(
     z.object({
       threadId: z.string().uuid(),

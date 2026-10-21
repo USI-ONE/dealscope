@@ -18,7 +18,7 @@ import {
   type Organization,
   type User,
 } from "@/db/schema";
-import { type Action, can, hasAtLeastRole, type Resource, type Role } from "./rbac";
+import { type Action, can, hasAtLeastRole, isExternalRole, type Resource, type Role } from "./rbac";
 
 export type ActiveContext = {
   user: User;
@@ -34,6 +34,10 @@ export const getActiveContext = cache(async (): Promise<ActiveContext | null> =>
     where: eq(users.id, session.user.id),
   });
   if (!user) return null;
+  // Password changed/reset since this session was issued -> signed out.
+  // Sessions from before this check (no stamp) are left alone.
+  const pwdAt = (session as { pwdAt?: number }).pwdAt;
+  if (pwdAt !== undefined && user.passwordSetAt && user.passwordSetAt.getTime() > pwdAt + 1000) return null;
 
   const membership = await db.query.memberships.findFirst({
     where: and(eq(memberships.userId, user.id), eq(memberships.isActive, true)),
@@ -58,9 +62,17 @@ export class AuthError extends Error {
   }
 }
 
-export async function requireContext(): Promise<ActiveContext> {
+/**
+ * Signed-in context. External diligence guests are refused unless the caller
+ * opts in — the (app) layout's redirect doesn't run for route handlers or
+ * client-side navigation, so every server entry point must enforce it.
+ */
+export async function requireContext(opts: { allowExternal?: boolean } = {}): Promise<ActiveContext> {
   const ctx = await getActiveContext();
   if (!ctx) throw new AuthError("UNAUTHENTICATED", "Not signed in");
+  if (!opts.allowExternal && isExternalRole(ctx.membership.role)) {
+    throw new AuthError("FORBIDDEN", "Not available to guest accounts");
+  }
   return ctx;
 }
 
@@ -76,7 +88,8 @@ export async function requirePermission(
   action: Action,
   resource: Resource,
 ): Promise<ActiveContext> {
-  const ctx = await requireContext();
+  // The role matrix decides what guests may do.
+  const ctx = await requireContext({ allowExternal: true });
   const allowed = can(action, resource, {
     role: ctx.membership.role,
     financeAccess: ctx.membership.financeAccess,

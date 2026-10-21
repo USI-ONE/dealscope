@@ -19,14 +19,15 @@ export function ResetPasswordForm({ token }: { token: string }) {
       setError("Passwords don't match.");
       return;
     }
-    if (pw.length < 8) {
-      setError("Password must be at least 8 characters.");
+    if (pw.length < 12) {
+      setError("Password must be at least 12 characters.");
       return;
     }
     setError(null);
     setPending(true);
     fd.set("token", token);
-    await resetPassword(fd);
+    const r = await resetPassword(fd);
+    if (r?.error) setError(r.error);
     setPending(false);
   }
 
@@ -45,7 +46,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
           type="password"
           autoComplete="new-password"
           required
-          minLength={8}
+          minLength={12}
           autoFocus
         />
       </div>
@@ -57,7 +58,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
           type="password"
           autoComplete="new-password"
           required
-          minLength={8}
+          minLength={12}
         />
       </div>
       <Button type="submit" className="w-full" size="lg" disabled={pending}>

@@ -28,6 +28,7 @@ import {
 import { getTemplate, templateIndex } from "@/lib/discovery/templates";
 import { photoPathPrefix } from "@/lib/discovery/paths";
 import { variantPath } from "@/lib/discovery/photo-variants";
+import { isOwnPath, urlMatchesPathname } from "@/lib/security/blob-policy";
 import { authedAction, authorize, PublicError } from "@/server/safe-action";
 
 async function assertProject(projectId: string, organizationId: string) {
@@ -414,17 +415,7 @@ export const registerDiscoveryPhoto = authedAction
     // The upload token only allows this prefix, but re-check so a caller
     // can't register an arbitrary URL against the project.
     const prefix = photoPathPrefix(ctx.organization.id, p.id);
-    let host = "";
-    try {
-      host = new URL(parsedInput.url).hostname;
-    } catch {
-      /* rejected below */
-    }
-    if (
-      !parsedInput.pathname.startsWith(prefix) ||
-      !host.endsWith(".blob.vercel-storage.com") ||
-      !parsedInput.url.includes(parsedInput.pathname)
-    ) {
+    if (!isOwnPath(parsedInput.pathname, prefix) || !urlMatchesPathname(parsedInput.url, parsedInput.pathname)) {
       throw new PublicError("Photo is not stored under this project");
     }
 

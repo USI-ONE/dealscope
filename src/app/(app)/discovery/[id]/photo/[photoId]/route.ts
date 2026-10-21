@@ -14,7 +14,13 @@ import sharp from "sharp";
 import { db } from "@/db";
 import { discoveryPhotos } from "@/db/schema";
 import { requireRole } from "@/lib/auth-helpers";
-import { isPhotoVariant, PHOTO_VARIANTS, variantPath, type PhotoVariant } from "@/lib/discovery/photo-variants";
+import { blobResponseHeaders } from "@/lib/security/blob-policy";
+import {
+  isPhotoVariant,
+  PHOTO_VARIANTS,
+  variantPath,
+  type PhotoVariant,
+} from "@/lib/discovery/photo-variants";
 
 export const runtime = "nodejs";
 
@@ -56,15 +62,22 @@ export async function GET(
 
   return new Response(result.stream, {
     headers: {
-      "Content-Type": result.blob.contentType || photo.mimeType || "image/jpeg",
-      "Content-Length": String(result.blob.size),
+      ...blobResponseHeaders({
+        contentType: result.blob.contentType || photo.mimeType,
+        filename: "photo",
+        size: result.blob.size,
+      }),
       ETag: result.blob.etag,
       "Cache-Control": CACHE,
     },
   });
 }
 
-async function serveVariant(req: Request, pathname: string, v: PhotoVariant): Promise<Response | null> {
+async function serveVariant(
+  req: Request,
+  pathname: string,
+  v: PhotoVariant,
+): Promise<Response | null> {
   const path = variantPath(pathname, v);
   const cached = await get(path, {
     access: "private",
@@ -75,6 +88,7 @@ async function serveVariant(req: Request, pathname: string, v: PhotoVariant): Pr
     return new Response(cached.stream, {
       headers: {
         "Content-Type": "image/jpeg",
+        "X-Content-Type-Options": "nosniff",
         "Content-Length": String(cached.blob.size),
         ETag: cached.blob.etag,
         "Cache-Control": CACHE,
@@ -99,7 +113,12 @@ async function serveVariant(req: Request, pathname: string, v: PhotoVariant): Pr
       allowOverwrite: true,
     }).catch((err) => console.error("discovery: variant store failed", err));
     return new Response(new Uint8Array(out), {
-      headers: { "Content-Type": "image/jpeg", "Content-Length": String(out.length), "Cache-Control": CACHE },
+      headers: {
+        "Content-Type": "image/jpeg",
+        "X-Content-Type-Options": "nosniff",
+        "Content-Length": String(out.length),
+        "Cache-Control": CACHE,
+      },
     });
   } catch (err) {
     console.error("discovery: variant build failed", err);

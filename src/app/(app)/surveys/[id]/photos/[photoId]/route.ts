@@ -9,7 +9,8 @@ import { get } from "@vercel/blob";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { siteSurveyPhotos } from "@/db/schema";
-import { requireContext } from "@/lib/auth-helpers";
+import { requirePermission } from "@/lib/auth-helpers";
+import { blobResponseHeaders } from "@/lib/security/blob-policy";
 
 export const runtime = "nodejs";
 
@@ -18,7 +19,7 @@ export async function GET(
   ctxArg: { params: Promise<{ id: string; photoId: string }> },
 ): Promise<Response> {
   const { id, photoId } = await ctxArg.params;
-  const ctx = await requireContext();
+  const ctx = await requirePermission("read", "client");
   if (!/^[0-9a-f-]{36}$/i.test(photoId)) return new Response("Not found", { status: 404 });
 
   const photo = await db.query.siteSurveyPhotos.findFirst({
@@ -40,8 +41,7 @@ export async function GET(
 
   return new Response(result.stream, {
     headers: {
-      "Content-Type": result.blob.contentType || photo.mimeType || "image/jpeg",
-      "Content-Length": String(result.blob.size),
+      ...blobResponseHeaders({ contentType: result.blob.contentType || photo.mimeType, filename: "photo", size: result.blob.size }),
       ETag: result.blob.etag,
       "Cache-Control": "private, max-age=86400, immutable",
     },

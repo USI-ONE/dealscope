@@ -22,7 +22,7 @@ import {
   standardControls,
   standards,
 } from "@/db/schema";
-import { authedAction, authorize, PublicError } from "@/server/safe-action";
+import { authedAction, authorize, guestAction, PublicError } from "@/server/safe-action";
 import {
   findStarterPack,
   type StarterStandard,
@@ -420,7 +420,7 @@ export const unapplyStandardFromClient = authedAction
  * applicable standards during discovery. Same shape as the client-side
  * actions, but keyed on engagement instead of client.
  * ========================================================================== */
-export const applyStandardToEngagement = authedAction
+export const applyStandardToEngagement = guestAction
   .schema(
     z.object({
       engagementId: z.string().uuid(),
@@ -459,7 +459,7 @@ export const applyStandardToEngagement = authedAction
     return { ok: true };
   });
 
-export const unapplyStandardFromEngagement = authedAction
+export const unapplyStandardFromEngagement = guestAction
   .schema(
     z.object({
       engagementId: z.string().uuid(),
@@ -491,7 +491,7 @@ export const unapplyStandardFromEngagement = authedAction
     return { ok: true };
   });
 
-export const upsertEngagementAssessment = authedAction
+export const upsertEngagementAssessment = guestAction
   .schema(
     z.object({
       engagementId: z.string().uuid(),

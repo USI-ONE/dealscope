@@ -28,6 +28,7 @@ import {
 } from "@/db/schema";
 import { requireContext } from "@/lib/auth-helpers";
 import { IMPLEMENTED_KINDS } from "@/lib/integrations/registry";
+import { maskConfig } from "@/lib/integrations/secrets";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { IntegrationSetupForm } from "@/components/settings/integration-setup-form";
@@ -143,7 +144,10 @@ export default async function IntegrationKindPage({
               displayName: conn.displayName,
               status: conn.status,
               enabled: conn.enabled,
-              configJson: (conn.configJson ?? {}) as Record<string, unknown>,
+              ...(() => {
+                const m = maskConfig((conn.configJson ?? {}) as Record<string, unknown>);
+                return { configJson: m.config, savedSecrets: m.savedSecrets };
+              })(),
               lastSyncMessage: conn.lastSyncMessage,
             }}
           />

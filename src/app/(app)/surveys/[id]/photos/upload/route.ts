@@ -20,7 +20,8 @@ import {
   siteSurveyPhotos,
   siteSurveys,
 } from "@/db/schema";
-import { requireContext } from "@/lib/auth-helpers";
+import { requirePermission } from "@/lib/auth-helpers";
+import { imageExtension, isAllowedImage } from "@/lib/security/blob-policy";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -40,7 +41,7 @@ export async function POST(
   ctxArg: { params: Promise<{ id: string }> },
 ): Promise<Response> {
   const { id } = await ctxArg.params;
-  const ctx = await requireContext();
+  const ctx = await requirePermission("update", "client");
 
   const survey = await db.query.siteSurveys.findFirst({
     where: and(
@@ -134,7 +135,7 @@ export async function POST(
       });
       continue;
     }
-    if (!f.type.startsWith("image/")) {
+    if (!isAllowedImage(f.type)) {
       skipped.push({
         filename: f.name,
         reason: `Not an image (mime: ${f.type || "unknown"}).`,
@@ -144,22 +145,20 @@ export async function POST(
     total += f.size;
 
     // Path: org/survey/<uuid>-<sanitized-filename>
-    const safeName = f.name.replace(/[^A-Za-z0-9._-]+/g, "-");
-    const key = `surveys/${ctx.organization.id}/${survey.id}/${crypto.randomUUID()}-${safeName}`;
+    const type = f.type.toLowerCase();
+    const base = f.name.replace(/\.[^.]*$/, "").replace(/[^A-Za-z0-9_-]+/g, "-").slice(0, 80) || "photo";
+    const key = `surveys/${ctx.organization.id}/${survey.id}/${crypto.randomUUID()}-${base}.${imageExtension(type)}`;
 
     let blobUrl: string;
     try {
       // The store is private: photos are served via
       // /surveys/[id]/photos/[photoId], never by raw blob URL.
-      const blob = await put(key, f, { access: "private" });
+      const blob = await put(key, f, { access: "private", contentType: type });
       blobUrl = blob.url;
     } catch (err) {
       skipped.push({
         filename: f.name,
-        reason:
-          err instanceof Error
-            ? `Upload failed: ${err.message}`
-            : "Upload failed",
+        reason: (console.error("[survey-photo] upload failed", err), "Upload failed"),
       });
       continue;
     }

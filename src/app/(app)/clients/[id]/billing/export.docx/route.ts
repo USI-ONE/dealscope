@@ -16,7 +16,7 @@ import {
   vendorSeatSnapshots,
   vendors,
 } from "@/db/schema";
-import { requireContext } from "@/lib/auth-helpers";
+import { requirePermission } from "@/lib/auth-helpers";
 import { getMonthlyHeartbeatCounts } from "@/lib/billing/heartbeats";
 import {
   buildClientInvoiceDocx,
@@ -88,7 +88,7 @@ export async function GET(
   const monthStart = startOfMonth(month);
   const monthEnd = endOfMonth(month);
 
-  const ctx = await requireContext();
+  const ctx = await requirePermission("read", "client");
   const client = await db.query.clients.findFirst({
     where: and(
       eq(clients.id, id),

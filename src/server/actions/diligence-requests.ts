@@ -4,11 +4,13 @@ import { and, asc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { diligenceDataRequests } from "@/db/schema";
-import { authedAction, authorize, PublicError } from "@/server/safe-action";
+import { guestAction, authorize, PublicError } from "@/server/safe-action";
+import { assertOwned } from "@/server/ownership";
+import { diligenceEngagements } from "@/db/schema";
 
 const requestStatus = z.enum(["pending", "received", "accepted", "waived", "rejected"]);
 
-export const createDataRequest = authedAction
+export const createDataRequest = guestAction
   .schema(
     z.object({
       engagementId: z.string().uuid(),
@@ -21,6 +23,7 @@ export const createDataRequest = authedAction
   )
   .action(async ({ parsedInput, ctx }) => {
     await authorize("create", "diligence");
+    await assertOwned(diligenceEngagements, parsedInput.engagementId, ctx.organization.id, "Engagement");
     const [{ maxPos }] = await db
       .select({ maxPos: sql<number>`coalesce(max(position), -1)` })
       .from(diligenceDataRequests)
@@ -40,7 +43,7 @@ export const createDataRequest = authedAction
     return { request: created };
   });
 
-export const updateDataRequest = authedAction
+export const updateDataRequest = guestAction
   .schema(
     z.object({
       requestId: z.string().uuid(),
@@ -70,7 +73,7 @@ export const updateDataRequest = authedAction
     return { ok: true };
   });
 
-export const deleteDataRequest = authedAction
+export const deleteDataRequest = guestAction
   .schema(z.object({ requestId: z.string().uuid(), engagementId: z.string().uuid() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("delete", "diligence");

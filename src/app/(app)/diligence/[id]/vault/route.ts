@@ -11,11 +11,11 @@
  *   accessTier  — "private" | "shared" (default "private")
  */
 import { put } from "@vercel/blob";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { db } from "@/db";
-import { diligenceEngagements, diligenceVaultFiles, memberships, organizations, users } from "@/db/schema";
+import { diligenceEngagements, diligenceVaultFiles } from "@/db/schema";
+import { AuthError, requirePermission } from "@/lib/auth-helpers";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -24,26 +24,14 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  let ctx: Awaited<ReturnType<typeof requirePermission>>;
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthenticated" }, { status: 401 });
-    }
-
-    const user = await db.query.users.findFirst({ where: eq(users.id, session.user.id) });
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 401 });
-
-    const membership = await db.query.memberships.findFirst({
-      where: and(eq(memberships.userId, user.id), eq(memberships.isActive, true)),
-    });
-    if (!membership) return NextResponse.json({ error: "No membership" }, { status: 403 });
-
-    const organization = await db.query.organizations.findFirst({
-      where: eq(organizations.id, membership.organizationId),
-    });
-    if (!organization) return NextResponse.json({ error: "No org" }, { status: 403 });
-
-    const ctx = { user, membership, organization };
+    ctx = await requirePermission("update", "diligence");
+  } catch (e) {
+    const status = e instanceof AuthError && e.code === "FORBIDDEN" ? 403 : 401;
+    return NextResponse.json({ error: status === 403 ? "Forbidden" : "Unauthenticated" }, { status });
+  }
+  try {
 
     const { id: engagementId } = await params;
 
@@ -73,6 +61,8 @@ export async function POST(
     const blob = await put(pathname, buffer, {
       access: "private",
       contentType: file.type || "application/octet-stream",
+      // Unguessable object names: a pathname alone must never locate a file.
+      addRandomSuffix: true,
     });
 
     const [inserted] = await db.insert(diligenceVaultFiles).values({
@@ -91,8 +81,7 @@ export async function POST(
 
     return NextResponse.json({ file: inserted });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.error("Vault upload error:", msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error("Vault upload error:", e);
+    return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }
 }

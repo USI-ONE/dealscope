@@ -15,6 +15,7 @@ import { db } from "@/db";
 import { discoveryProjects } from "@/db/schema";
 import { requireContext, requirePermission } from "@/lib/auth-helpers";
 import { photoPathPrefix } from "@/lib/discovery/paths";
+import { isOwnPath } from "@/lib/security/blob-policy";
 
 export const runtime = "nodejs";
 
@@ -51,7 +52,7 @@ export async function POST(request: Request): Promise<Response> {
           columns: { id: true },
         });
         if (!project) throw new Error("Project not found");
-        if (!pathname.startsWith(photoPathPrefix(ctx.organization.id, project.id))) {
+        if (!isOwnPath(pathname, photoPathPrefix(ctx.organization.id, project.id))) {
           throw new Error("Invalid upload path");
         }
         return {

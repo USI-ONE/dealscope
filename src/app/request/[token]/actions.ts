@@ -14,9 +14,15 @@ import type { DiscoveryAnswerValue } from "@/db/schema/discovery";
 import { appBaseUrl } from "@/lib/email/account";
 import { sendInfoRequestAnsweredEmail } from "@/lib/email/discovery";
 import { getTemplate, templateIndex } from "@/lib/discovery/templates";
+import { rateLimit } from "@/lib/security/rate-limit";
 
 const responseSchema = z.object({
-  v: z.union([z.string().max(4000), z.array(z.string().max(300)).max(40), z.record(z.string().max(300)), z.null()]),
+  v: z.union([
+    z.string().max(4000),
+    z.array(z.string().max(300)).max(40),
+    z.record(z.string().max(300)).refine((o) => Object.keys(o).length <= 10),
+    z.null(),
+  ]),
   unknown: z.boolean().optional(),
   note: z.string().max(2000).optional(),
 });
@@ -31,6 +37,7 @@ async function openRequest(token: string) {
 
 /** Autosave one answer as a draft (nothing touches the walk until submit). */
 export async function saveDraft(token: string, key: string, response: Response) {
+  if (!(await rateLimit(`request-draft:${token}`, 600, 60 * 60)).ok) return { ok: false };
   const r = await openRequest(token);
   if (!r || !r.questionKeys.includes(key)) return { ok: false };
   const parsed = responseSchema.safeParse(response);
@@ -51,6 +58,12 @@ function hasAnswer(v: Response["v"]) {
 
 /** Apply every answer to the site walk and notify whoever sent the request. */
 export async function submitAnswers(token: string, responses: Record<string, Response>) {
+  if (!(await rateLimit(`request-submit:${token}`, 20, 60 * 60)).ok) {
+    return { ok: false, error: "Too many submissions — please try again later." };
+  }
+  if (!responses || typeof responses !== "object" || Object.keys(responses).length > 80) {
+    return { ok: false, error: "Something went wrong — try again." };
+  }
   const r = await openRequest(token);
   if (!r) return { ok: false, error: "This link has expired or been closed." };
   const project = await db.query.discoveryProjects.findFirst({ where: eq(discoveryProjects.id, r.projectId) });
@@ -110,7 +123,9 @@ export async function submitAnswers(token: string, responses: Record<string, Res
   await db.update(discoveryProjects).set({ updatedAt: new Date() }).where(eq(discoveryProjects.id, project.id));
 
   // Let the sender know.
-  if (r.createdByMembershipId && (answered || unknown)) {
+  // Email the sender on the first submission, then at most hourly for updates.
+  const notifyAgain = !r.submittedAt || Date.now() - r.submittedAt.getTime() > 60 * 60 * 1000;
+  if (notifyAgain && r.createdByMembershipId && (answered || unknown)) {
     const [sender] = await db
       .select({ email: users.email })
       .from(memberships)

@@ -14,7 +14,7 @@ import {
   standardChangeCatalog,
   users,
 } from "@/db/schema";
-import { requireContext } from "@/lib/auth-helpers";
+import { requirePermission } from "@/lib/auth-helpers";
 import { buildChangeRequestDocx } from "@/lib/change-control/docx-builder";
 
 export const runtime = "nodejs";
@@ -44,7 +44,7 @@ export async function GET(
   ctxArg: { params: Promise<{ id: string; crid: string }> },
 ) {
   const { id, crid } = await ctxArg.params;
-  const ctx = await requireContext();
+  const ctx = await requirePermission("read", "client");
 
   const client = await db.query.clients.findFirst({
     where: and(

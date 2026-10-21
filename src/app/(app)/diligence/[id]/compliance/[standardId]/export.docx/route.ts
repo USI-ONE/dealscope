@@ -32,7 +32,7 @@ export async function GET(
   ctxArg: { params: Promise<{ id: string; standardId: string }> },
 ) {
   const { id, standardId } = await ctxArg.params;
-  const ctx = await requireContext();
+  const ctx = await requireContext({ allowExternal: true });
 
   const engagement = await db.query.diligenceEngagements.findFirst({
     where: and(

@@ -16,6 +16,7 @@ import {
 } from "@/db/schema";
 import { calcFte } from "@/lib/staffing/calc";
 import { authedAction, authorize, PublicError } from "@/server/safe-action";
+import { assertOwned } from "@/server/ownership";
 
 const AUTOMATION = z.enum(["manual", "partial", "high"]);
 const STRATEGIC = z.enum(["none", "low", "medium", "high"]);
@@ -323,6 +324,8 @@ export const upsertStaffAssignment = authedAction
   .schema(assignmentSchema)
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "membership");
+    await assertOwned(staffMembers, parsedInput.staffMemberId, ctx.organization.id, "Staff member");
+    await assertOwned(clients, parsedInput.clientId, ctx.organization.id, "Client");
     await db
       .insert(staffAssignments)
       .values({

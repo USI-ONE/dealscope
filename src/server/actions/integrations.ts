@@ -28,6 +28,9 @@ import {
   runSeatSync,
   runTestConnection,
 } from "@/lib/integrations/sync-runner";
+import { assertOwned } from "@/server/ownership";
+import { mergeSecrets } from "@/lib/integrations/secrets";
+import { clients } from "@/db/schema";
 
 const KINDS = [
   "syncro",
@@ -123,7 +126,7 @@ export const updateConnectionConfig = authedAction
       .update(vendorConnections)
       .set({
         displayName: parsedInput.displayName,
-        configJson: parsedInput.configJson,
+        configJson: mergeSecrets(parsedInput.configJson, (target.configJson ?? {}) as Record<string, unknown>),
         // Bump status from "not_configured" → "configured" so the
         // dashboard reflects that creds are saved (still needs a
         // successful test/sync to flip to "connected").
@@ -242,6 +245,8 @@ export const linkVendorClient = authedAction
   )
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "organization");
+    await assertOwned(vendorConnections, parsedInput.connectionId, ctx.organization.id, "Connection");
+    await assertOwned(clients, parsedInput.clientId, ctx.organization.id, "Client");
     // Upsert via the (connection, identifier) unique index.
     await db
       .insert(vendorClientMappings)

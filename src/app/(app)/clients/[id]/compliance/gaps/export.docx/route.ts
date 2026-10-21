@@ -6,7 +6,7 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { clients } from "@/db/schema";
-import { requireContext } from "@/lib/auth-helpers";
+import { requirePermission } from "@/lib/auth-helpers";
 import {
   loadConsolidatedGaps,
   tallyGapStats,
@@ -28,7 +28,7 @@ export async function GET(
   ctxArg: { params: Promise<{ id: string }> },
 ) {
   const { id } = await ctxArg.params;
-  const ctx = await requireContext();
+  const ctx = await requirePermission("read", "client");
 
   const client = await db.query.clients.findFirst({
     where: and(

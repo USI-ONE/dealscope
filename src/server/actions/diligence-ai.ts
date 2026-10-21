@@ -11,7 +11,7 @@ import {
   type ExtractedAnswer,
   type SuggestedQuestion,
 } from "@/lib/ai/anthropic";
-import { authedAction, authorize, PublicError } from "@/server/safe-action";
+import { guestAction, authorize, PublicError } from "@/server/safe-action";
 
 /* ============================================================================
  * Shared output schemas — used as JSON Schema constraints on Claude.
@@ -148,7 +148,7 @@ const extractSchema = z.object({
   sessionId: z.string().uuid().optional().nullable(),
 });
 
-export const extractAnswersFromNotes = authedAction
+export const extractAnswersFromNotes = guestAction
   .schema(extractSchema)
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "diligence");
@@ -244,7 +244,7 @@ const suggestSchema = z.object({
   count: z.number().int().min(1).max(10).default(5),
 });
 
-export const suggestNextQuestions = authedAction
+export const suggestNextQuestions = guestAction
   .schema(suggestSchema)
   .action(async ({ parsedInput, ctx }) => {
     await authorize("read", "diligence");
@@ -329,7 +329,7 @@ const briefingSchema = z.object({
   engagementId: z.string().uuid(),
 });
 
-export const generateBriefingDraft = authedAction
+export const generateBriefingDraft = guestAction
   .schema(briefingSchema)
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "diligence");

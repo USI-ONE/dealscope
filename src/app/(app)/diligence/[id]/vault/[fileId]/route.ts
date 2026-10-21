@@ -1,5 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { get } from "@vercel/blob";
+import { contentDisposition } from "@/lib/security/blob-policy";
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { diligenceEngagements, diligenceVaultFiles, memberships, users } from "@/db/schema";
@@ -42,23 +44,19 @@ export async function GET(
     });
     if (!file) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const blobRes = await fetch(file.blobUrl, {
-      headers: {
-        Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}`,
-      },
-    });
-
-    if (!blobRes.ok) {
+    const blob = await get(file.blobPathname, { access: "private" });
+    if (!blob || blob.statusCode !== 200 || !blob.stream) {
       return NextResponse.json({ error: "File not accessible" }, { status: 502 });
     }
 
-    const headers = new Headers();
-    headers.set("Content-Type", file.mimeType ?? "application/octet-stream");
-    headers.set("Content-Disposition", `attachment; filename="${file.name}"`);
-    const ct = blobRes.headers.get("content-length");
-    if (ct) headers.set("Content-Length", ct);
-
-    return new NextResponse(blobRes.body, { status: 200, headers });
+    const headers = new Headers({
+      "Content-Type": "application/octet-stream",
+      "Content-Disposition": contentDisposition("attachment", file.name),
+      "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": "default-src 'none'; sandbox",
+      "Content-Length": String(blob.blob.size),
+    });
+    return new NextResponse(blob.stream, { status: 200, headers });
   } catch (e) {
     console.error("Vault download error:", e);
     return NextResponse.json({ error: "Download failed" }, { status: 500 });

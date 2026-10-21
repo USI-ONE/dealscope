@@ -24,7 +24,7 @@ export default async function TechOsDiligenceSessionPage({
   params: Promise<{ id: string; sid: string }>;
 }) {
   const { id, sid } = await params;
-  const ctx = await requireContext();
+  const ctx = await requireContext({ allowExternal: true });
 
   const engagement = await db.query.diligenceEngagements.findFirst({
     where: and(

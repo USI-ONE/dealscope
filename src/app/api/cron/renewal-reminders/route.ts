@@ -12,14 +12,14 @@
  * Mail.Send permission isn't granted yet — the report still appears
  * on /audit so nothing is missed.
  *
- * Auth: same model as the snapshot-tiers cron (Bearer CRON_SECRET +
- * x-vercel-cron header in prod; permissive in dev).
+ * Auth: Bearer CRON_SECRET only (see lib/security/cron-auth).
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/db";
 import { memberships, organizations, users } from "@/db/schema";
 import { and, eq, inArray } from "drizzle-orm";
 import { upcomingRenewals, type AuditItem } from "@/lib/audit/inventory";
+import { isAuthorizedCron } from "@/lib/security/cron-auth";
 import { sendEmail, isEmailConfigured } from "@/lib/email/graph";
 
 export const dynamic = "force-dynamic";
@@ -100,16 +100,7 @@ function buildDigestHtml(orgName: string, items: AuditItem[]): string {
 }
 
 export async function GET(req: NextRequest) {
-  const provided = req.headers.get("authorization") ?? "";
-  const expected = process.env.CRON_SECRET
-    ? `Bearer ${process.env.CRON_SECRET}`
-    : null;
-  const fromVercelCron = req.headers.get("x-vercel-cron") !== null;
-  const authorized =
-    (expected && provided === expected) ||
-    fromVercelCron ||
-    process.env.NODE_ENV !== "production";
-  if (!authorized) {
+  if (!isAuthorizedCron(req)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

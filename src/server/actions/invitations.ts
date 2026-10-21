@@ -26,6 +26,7 @@ import {
 } from "@/db/schema";
 import {
   hashPassword,
+  verifyPassword,
   validatePasswordStrength,
 } from "@/lib/auth-password";
 import { sendInvitationEmail } from "@/lib/email/invitations";
@@ -291,7 +292,16 @@ export const acceptInvitation = action
     const existing = await db.query.users.findFirst({
       where: sql`lower(${users.email}) = ${email}`,
     });
-    if (existing) {
+    if (existing?.passwordHash) {
+      // Already has an account: the invite link alone must not be able to
+      // replace their password. They prove it's them with the current one.
+      if (!(await verifyPassword(parsedInput.password, existing.passwordHash))) {
+        throw new PublicError(
+          "You already have a DealScope account with this email. Enter your existing password to accept the invitation (or use “Forgot password” on the sign-in page).",
+        );
+      }
+      userId = existing.id;
+    } else if (existing) {
       await db
         .update(users)
         .set({

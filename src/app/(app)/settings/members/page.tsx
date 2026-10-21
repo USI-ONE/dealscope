@@ -66,8 +66,10 @@ export default async function MembersPage() {
     process.env.AUTH_URL?.trim() ||
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
 
-  const invitations: PendingInvitationRow[] = invitationsRaw.map((r) => ({
-    id: r.invitation.id,
+  // The invitation id is the accept-link token — only owners (who manage
+  // invites) receive it; everyone else gets an opaque placeholder.
+  const invitations: PendingInvitationRow[] = invitationsRaw.map((r, i) => ({
+    id: isOwner ? r.invitation.id : `pending-${i}`,
     email: r.invitation.email,
     role: r.invitation.role,
     financeAccess: r.invitation.financeAccess,

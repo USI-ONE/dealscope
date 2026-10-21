@@ -5,9 +5,9 @@ import { and, asc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { diligenceVaultFiles } from "@/db/schema";
-import { authedAction, authorize, PublicError } from "@/server/safe-action";
+import { guestAction, authorize, PublicError } from "@/server/safe-action";
 
-export const deleteVaultFile = authedAction
+export const deleteVaultFile = guestAction
   .schema(z.object({ fileId: z.string().uuid(), engagementId: z.string().uuid() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("delete", "diligence");
@@ -24,7 +24,7 @@ export const deleteVaultFile = authedAction
     return { ok: true };
   });
 
-export const updateVaultFile = authedAction
+export const updateVaultFile = guestAction
   .schema(
     z.object({
       fileId: z.string().uuid(),

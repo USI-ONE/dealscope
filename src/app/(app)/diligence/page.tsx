@@ -20,7 +20,7 @@ import {
 export const metadata = { title: "DealScope · Diligence" };
 
 export default async function TechOsDiligencePage() {
-  const ctx = await requireContext();
+  const ctx = await requireContext({ allowExternal: true });
 
   // Each CTE aliases its aggregate to a distinct name so the outer SELECT
   // never ends up with two columns called `count` (Postgres throws

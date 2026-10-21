@@ -32,7 +32,7 @@ import {
   vendors,
   type ProcedureStep,
 } from "@/db/schema";
-import { requireContext } from "@/lib/auth-helpers";
+import { requirePermission } from "@/lib/auth-helpers";
 import { buildClientRunbookDocx } from "@/lib/runbook/runbook-docx-builder";
 
 export const runtime = "nodejs";
@@ -50,7 +50,7 @@ export async function GET(
   ctxArg: { params: Promise<{ id: string }> },
 ) {
   const { id } = await ctxArg.params;
-  const ctx = await requireContext();
+  const ctx = await requirePermission("read", "client");
 
   const client = await db.query.clients.findFirst({
     where: and(eq(clients.id, id), eq(clients.organizationId, ctx.organization.id)),

@@ -15,7 +15,8 @@ import {
   diligenceSessions,
 } from "@/db/schema";
 import { INDUSTRY_ENUM_VALUES } from "@/lib/diligence/industries";
-import { authedAction, authorize, PublicError } from "@/server/safe-action";
+import { guestAction, authorize, PublicError } from "@/server/safe-action";
+import { assertOwned } from "@/server/ownership";
 
 const engagementStatus = z.enum(["planning", "in_progress", "drafting", "delivered"]);
 const industrySchema = z.enum(INDUSTRY_ENUM_VALUES);
@@ -33,7 +34,7 @@ const createEngagementSchema = z.object({
   deliveryDate: z.string().optional().nullable(),
 });
 
-export const createEngagement = authedAction
+export const createEngagement = guestAction
   .schema(createEngagementSchema)
   .action(async ({ parsedInput, ctx }) => {
     await authorize("create", "diligence");
@@ -58,7 +59,7 @@ export const createEngagement = authedAction
     return { engagement: created };
   });
 
-export const updateEngagement = authedAction
+export const updateEngagement = guestAction
   .schema(createEngagementSchema.partial().extend({ engagementId: z.string().uuid() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "diligence");
@@ -117,7 +118,7 @@ export const updateEngagement = authedAction
     return { ok: true };
   });
 
-export const archiveEngagement = authedAction
+export const archiveEngagement = guestAction
   .schema(z.object({ engagementId: z.string().uuid(), restore: z.boolean().default(false) }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "diligence");
@@ -138,7 +139,7 @@ export const archiveEngagement = authedAction
     return { ok: true };
   });
 
-export const deleteEngagement = authedAction
+export const deleteEngagement = guestAction
   .schema(z.object({ engagementId: z.string().uuid() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("delete", "diligence");
@@ -179,7 +180,7 @@ export const deleteEngagement = authedAction
  * Requires: create on clients + update on diligence (since we mutate
  * the engagement to link it).
  */
-export const convertEngagementToClient = authedAction
+export const convertEngagementToClient = guestAction
   .schema(
     z.object({
       engagementId: z.string().uuid(),
@@ -304,7 +305,7 @@ const setResponseSchema = z.object({
   notes: z.string().max(20000).optional().nullable(),
 });
 
-export const setEngagementResponse = authedAction
+export const setEngagementResponse = guestAction
   .schema(setResponseSchema)
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "diligence");
@@ -341,7 +342,7 @@ export const setEngagementResponse = authedAction
     return { ok: true };
   });
 
-export const clearEngagementResponse = authedAction
+export const clearEngagementResponse = guestAction
   .schema(z.object({ engagementId: z.string().uuid(), questionKey: z.string().min(1).max(200) }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "diligence");
@@ -378,7 +379,7 @@ const sessionSchema = z.object({
   mode: z.enum(["onsite", "remote", "hybrid"]).default("onsite"),
 });
 
-export const createSession = authedAction
+export const createSession = guestAction
   .schema(sessionSchema)
   .action(async ({ parsedInput, ctx }) => {
     await authorize("create", "diligence");
@@ -401,7 +402,7 @@ export const createSession = authedAction
     return { session: created };
   });
 
-export const updateSession = authedAction
+export const updateSession = guestAction
   .schema(
     sessionSchema.partial().extend({
       sessionId: z.string().uuid(),
@@ -456,7 +457,7 @@ export const updateSession = authedAction
     return { ok: true };
   });
 
-export const deleteSession = authedAction
+export const deleteSession = guestAction
   .schema(z.object({ sessionId: z.string().uuid(), engagementId: z.string().uuid() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("delete", "diligence");
@@ -482,10 +483,11 @@ const attendeeSchema = z.object({
   notes: z.string().max(2000).optional().nullable(),
 });
 
-export const createAttendee = authedAction
+export const createAttendee = guestAction
   .schema(attendeeSchema)
   .action(async ({ parsedInput, ctx }) => {
     await authorize("create", "diligence");
+    await assertOwned(diligenceSessions, parsedInput.sessionId, ctx.organization.id, "Session");
     const [created] = await db
       .insert(diligenceAttendees)
       .values({
@@ -504,7 +506,7 @@ export const createAttendee = authedAction
     return { attendee: created };
   });
 
-export const deleteAttendee = authedAction
+export const deleteAttendee = guestAction
   .schema(
     z.object({
       attendeeId: z.string().uuid(),
@@ -559,7 +561,7 @@ const artifactSchema = z.object({
   notes: z.string().max(20000).optional().nullable(),
 });
 
-export const createArtifact = authedAction
+export const createArtifact = guestAction
   .schema(artifactSchema)
   .action(async ({ parsedInput, ctx }) => {
     await authorize("create", "diligence");
@@ -584,7 +586,7 @@ export const createArtifact = authedAction
     return { artifact: created };
   });
 
-export const updateArtifact = authedAction
+export const updateArtifact = guestAction
   .schema(artifactSchema.extend({ artifactId: z.string().uuid() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "diligence");
@@ -611,7 +613,7 @@ export const updateArtifact = authedAction
     return { ok: true };
   });
 
-export const deleteArtifact = authedAction
+export const deleteArtifact = guestAction
   .schema(z.object({ artifactId: z.string().uuid(), engagementId: z.string().uuid() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("delete", "diligence");
@@ -673,7 +675,7 @@ async function nextFindingRefCode(
   return `${prefix}-${String(max + 1).padStart(2, "0")}`;
 }
 
-export const createFinding = authedAction
+export const createFinding = guestAction
   .schema(findingSchema)
   .action(async ({ parsedInput, ctx }) => {
     await authorize("create", "diligence");
@@ -699,7 +701,7 @@ export const createFinding = authedAction
     return { finding: created };
   });
 
-export const updateFinding = authedAction
+export const updateFinding = guestAction
   .schema(findingSchema.extend({ findingId: z.string().uuid() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "diligence");
@@ -734,7 +736,7 @@ export const updateFinding = authedAction
     return { ok: true };
   });
 
-export const deleteFinding = authedAction
+export const deleteFinding = guestAction
   .schema(z.object({ findingId: z.string().uuid(), engagementId: z.string().uuid() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("delete", "diligence");
@@ -771,7 +773,7 @@ const costLineSchema = z.object({
   costType: z.string().max(60).optional().nullable(),
 });
 
-export const createCostLine = authedAction
+export const createCostLine = guestAction
   .schema(costLineSchema)
   .action(async ({ parsedInput, ctx }) => {
     await authorize("create", "diligence");
@@ -803,7 +805,7 @@ export const createCostLine = authedAction
     return { costLine: created };
   });
 
-export const updateCostLine = authedAction
+export const updateCostLine = guestAction
   .schema(costLineSchema.extend({ costLineId: z.string().uuid() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "diligence");
@@ -831,7 +833,7 @@ export const updateCostLine = authedAction
     return { ok: true };
   });
 
-export const deleteCostLine = authedAction
+export const deleteCostLine = guestAction
   .schema(z.object({ costLineId: z.string().uuid(), engagementId: z.string().uuid() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("delete", "diligence");

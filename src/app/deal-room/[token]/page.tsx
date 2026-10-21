@@ -37,7 +37,7 @@ export default async function ExternalDealRoomPage({
     .where(eq(diligencePartyInvitations.id, invitation.id));
 
   const engagement = await db.query.diligenceEngagements.findFirst({
-    where: eq(diligenceEngagements.id, invitation.engagementId),
+    where: and(eq(diligenceEngagements.id, invitation.engagementId), eq(diligenceEngagements.organizationId, invitation.organizationId)),
     columns: { id: true, targetCompanyName: true, codename: true },
   });
   if (!engagement) notFound();
@@ -49,6 +49,7 @@ export default async function ExternalDealRoomPage({
       .where(
         and(
           eq(diligenceVaultFiles.engagementId, invitation.engagementId),
+          eq(diligenceVaultFiles.organizationId, invitation.organizationId),
           eq(diligenceVaultFiles.accessTier, "shared"),
         ),
       )
@@ -84,7 +85,8 @@ export default async function ExternalDealRoomPage({
         name: f.name,
         description: f.description,
         track: f.track,
-        blobUrl: f.blobUrl,
+        // Token-checked download route — never the raw storage URL.
+        blobUrl: `/deal-room/${token}/file/${f.id}`,
         sizeBytes: f.sizeBytes,
         mimeType: f.mimeType,
         createdAt: f.createdAt.toISOString(),

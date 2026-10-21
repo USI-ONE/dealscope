@@ -19,8 +19,15 @@ export const action = createSafeActionClient({
   },
 });
 
+/** Signed-in staff. External diligence guests are refused. */
 export const authedAction = action.use(async ({ next }) => {
   const ctx = await requireContext();
+  return next({ ctx });
+});
+
+/** Diligence actions that external guests may also call (still gated by authorize()). */
+export const guestAction = action.use(async ({ next }) => {
+  const ctx = await requireContext({ allowExternal: true });
   return next({ ctx });
 });
 

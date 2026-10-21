@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/db";
 import { organizations } from "@/db/schema";
 import { captureAllClientHeartbeats } from "@/lib/billing/heartbeats";
+import { isAuthorizedCron } from "@/lib/security/cron-auth";
 import { snapshotAllClients } from "@/lib/billing/tier-snapshots";
 
 export const dynamic = "force-dynamic";
@@ -26,26 +27,11 @@ export const runtime = "nodejs";
  *     the month all get billed, even if only 20 are online at month
  *     end.
  *
- * Auth model:
- *   - Vercel Cron sends an `Authorization: Bearer <CRON_SECRET>` header
- *     when the env var is set. We verify it.
- *   - For local testing without CRON_SECRET, accept the request when the
- *     `vercel-cron` request header is set OR when running outside
- *     production (NODE_ENV !== "production").
+ * Auth: Bearer CRON_SECRET only (see lib/security/cron-auth). Vercel Cron
+ * sends it automatically when the env var is set.
  */
 export async function GET(req: NextRequest) {
-  const provided = req.headers.get("authorization") ?? "";
-  const expected = process.env.CRON_SECRET
-    ? `Bearer ${process.env.CRON_SECRET}`
-    : null;
-  const fromVercelCron = req.headers.get("x-vercel-cron") !== null;
-
-  const authorized =
-    (expected && provided === expected) ||
-    fromVercelCron ||
-    process.env.NODE_ENV !== "production";
-
-  if (!authorized) {
+  if (!isAuthorizedCron(req)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

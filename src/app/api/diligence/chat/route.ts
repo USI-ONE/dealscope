@@ -33,7 +33,7 @@ const bodySchema = z.object({
  * use status), upgrade to SSE then.
  */
 export async function POST(req: NextRequest) {
-  const ctx = await requireContext();
+  const ctx = await requireContext({ allowExternal: true });
   if (!canCtx("update", "diligence", ctx)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }

@@ -86,7 +86,7 @@ export default async function TechOsBriefingPreviewPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const ctx = await requireContext();
+  const ctx = await requireContext({ allowExternal: true });
 
   const engagement = await db.query.diligenceEngagements.findFirst({
     where: and(

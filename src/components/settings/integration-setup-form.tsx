@@ -158,6 +158,8 @@ type Props = {
     status: string;
     enabled: boolean;
     configJson: Record<string, unknown>;
+    /** Secret fields that have a saved value (their values are never sent here). */
+    savedSecrets?: string[];
     lastSyncMessage: string | null;
   };
 };
@@ -278,6 +280,7 @@ export function IntegrationSetupForm({ connection }: Props) {
                     autoComplete={f.type === "password" ? "new-password" : undefined}
                     value={values[f.key] ?? ""}
                     onChange={(e) => setField(f.key, e.target.value)}
+                    placeholder={connection.savedSecrets?.includes(f.key) ? "•••••••• saved — leave blank to keep" : undefined}
                   />
                 )}
                 {f.help && (

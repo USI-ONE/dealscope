@@ -13,7 +13,7 @@ import {
   standardControls,
   standards,
 } from "@/db/schema";
-import { requireContext } from "@/lib/auth-helpers";
+import { requirePermission } from "@/lib/auth-helpers";
 import { buildGapReportDocx } from "@/lib/compliance/docx-builder";
 
 export const runtime = "nodejs";
@@ -31,7 +31,7 @@ export async function GET(
   ctxArg: { params: Promise<{ id: string; standardId: string }> },
 ) {
   const { id, standardId } = await ctxArg.params;
-  const ctx = await requireContext();
+  const ctx = await requirePermission("read", "client");
 
   const client = await db.query.clients.findFirst({
     where: and(

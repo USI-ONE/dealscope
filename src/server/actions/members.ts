@@ -12,6 +12,21 @@ import {
   verifyPassword,
 } from "@/lib/auth-password";
 import { authedAction, authorize, PublicError } from "@/server/safe-action";
+import { unstable_update } from "@/auth";
+
+/**
+ * An admin may only set a password for someone whose account lives entirely
+ * inside the admin's own organization. Anyone who also belongs to another
+ * organization resets their own password, so one tenant's admin can never
+ * take over an account another tenant relies on.
+ */
+async function belongsToAnotherOrg(userId: string, organizationId: string) {
+  const other = await db.query.memberships.findFirst({
+    where: and(eq(memberships.userId, userId), sql`${memberships.organizationId} <> ${organizationId}`),
+    columns: { id: true },
+  });
+  return !!other;
+}
 import { isEmailConfigured } from "@/lib/email/graph";
 import {
   issuePasswordToken,
@@ -195,7 +210,13 @@ export const createUserWithPassword = authedAction
         );
       }
       // User exists but has no membership in this org — adopt them and
-      // (re)set their password.
+      // (re)set their password, unless their account belongs to another
+      // organization (then they keep their own password).
+      if (await belongsToAnotherOrg(existing.id, ctx.organization.id)) {
+        throw new PublicError(
+          `${email} already has a DealScope account with another organization. Send them an invitation instead — they'll accept it with their existing password.`,
+        );
+      }
       await db
         .update(users)
         .set({
@@ -281,6 +302,9 @@ export const resetUserPassword = authedAction
       ),
     });
     if (!membership) throw new PublicError("Member not found");
+    if (await belongsToAnotherOrg(membership.userId, ctx.organization.id)) {
+      throw new PublicError("This person's account is shared with another organization — ask them to use “Forgot password” instead.");
+    }
 
     let plain = parsedInput.password ?? null;
     if (plain) {
@@ -359,6 +383,8 @@ export const changeMyPassword = authedAction
         mustChangePassword: false,
       })
       .where(eq(users.id, me.id));
+    // Other sessions for this account are now revoked; keep this one.
+    await unstable_update({});
     return { ok: true };
   });
 
