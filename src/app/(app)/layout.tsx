@@ -3,106 +3,12 @@ export const dynamic = "force-dynamic";
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { and, eq } from "drizzle-orm";
-import { db } from "@/db";
-import { diligenceEngagements, diligenceSessions, discoveryProjects } from "@/db/schema";
+import { buildBreadcrumbs } from "@/lib/breadcrumbs";
 import { AppHeader } from "@/components/nav/app-header";
+import { AppMain } from "@/components/nav/app-main";
 import { AppSidebar } from "@/components/nav/app-sidebar";
 import { canCtx, getActiveContext } from "@/lib/auth-helpers";
 import { isExternalRole } from "@/lib/rbac";
-
-type BreadcrumbSegment = { label: string; href?: string };
-
-const SUB_PAGE_LABELS: Record<string, string> = {
-  briefing: "Briefing",
-  compliance: "Compliance",
-  report: "Report",
-  sessions: "Sessions",
-};
-
-const SETTINGS_LABELS: Record<string, string> = {
-  members: "Members",
-  account: "My Account",
-  organization: "Organization",
-};
-
-async function buildBreadcrumbs(
-  path: string,
-  orgId: string,
-): Promise<BreadcrumbSegment[]> {
-  try {
-    if (path.startsWith("/settings")) {
-      const segment = path.split("/")[2];
-      const crumbs: BreadcrumbSegment[] = [{ label: "Settings", href: "/settings/account" }];
-      if (segment && SETTINGS_LABELS[segment]) {
-        crumbs.push({ label: SETTINGS_LABELS[segment] });
-      }
-      return crumbs;
-    }
-
-    if (path.startsWith("/discovery")) {
-      const crumbs: BreadcrumbSegment[] = [{ label: "Site discovery", href: "/discovery" }];
-      const m = path.match(/^\/discovery\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
-      if (m) {
-        const project = await db.query.discoveryProjects.findFirst({
-          where: and(eq(discoveryProjects.id, m[1]), eq(discoveryProjects.organizationId, orgId)),
-          columns: { name: true },
-        });
-        if (project) crumbs.push({ label: project.name, href: `/discovery/${m[1]}` });
-      }
-      return crumbs;
-    }
-
-    if (path.startsWith("/diligence")) {
-      const crumbs: BreadcrumbSegment[] = [
-        { label: "Engagements", href: "/diligence" },
-      ];
-
-      const engMatch = path.match(/^\/diligence\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
-      if (!engMatch) return crumbs;
-
-      const engId = engMatch[1];
-      const engagement = await db.query.diligenceEngagements.findFirst({
-        where: and(
-          eq(diligenceEngagements.id, engId),
-          eq(diligenceEngagements.organizationId, orgId),
-        ),
-        columns: { targetCompanyName: true },
-      });
-      if (!engagement) return crumbs;
-
-      crumbs.push({ label: engagement.targetCompanyName, href: `/diligence/${engId}` });
-
-      // Session detail: /diligence/[id]/sessions/[sid]
-      const sessionMatch = path.match(/\/sessions\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
-      if (sessionMatch) {
-        const session = await db.query.diligenceSessions.findFirst({
-          where: and(
-            eq(diligenceSessions.id, sessionMatch[1]),
-            eq(diligenceSessions.engagementId, engId),
-          ),
-          columns: { title: true },
-        });
-        crumbs.push({ label: "Sessions", href: `/diligence/${engId}?tab=sessions` });
-        if (session) crumbs.push({ label: session.title });
-        return crumbs;
-      }
-
-      // Other sub-pages
-      const subPage = path.split("/")[3];
-      if (subPage && SUB_PAGE_LABELS[subPage]) {
-        crumbs.push({ label: SUB_PAGE_LABELS[subPage] });
-      }
-
-      return crumbs;
-    }
-
-    return [];
-  } catch {
-    // Never block render on breadcrumb failure
-    return [];
-  }
-}
 
 /**
  * Routes an external_diligence guest is allowed to see. Anything else
@@ -145,23 +51,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         }}
       />
       <div className="flex min-w-0 flex-1 flex-col">
-        <AppHeader context={context} breadcrumbs={breadcrumbs} />
+        <AppHeader context={context} breadcrumbs={breadcrumbs} path={path} />
         {/* Phones: the page itself scrolls (native iOS scrolling, collapsing
             toolbars, sticky headers); wide tables scroll inside their own
             wrappers. Desktop keeps main as the scroll container, except on
             field (discovery) pages which rely on position:sticky. */}
-        <main
-          className={
-            path.startsWith("/discovery")
-              ? "min-w-0 flex-1 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:p-7 print:p-0"
-              : path.startsWith("/diligence/")
-                ? // leave room for the floating AI assistant button
-                  "min-w-0 flex-1 p-4 pb-24 md:overflow-y-auto md:p-7"
-                : "min-w-0 flex-1 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:overflow-y-auto md:p-7"
-          }
-        >
+        <AppMain>
           {children}
-        </main>
+        </AppMain>
       </div>
     </div>
   );

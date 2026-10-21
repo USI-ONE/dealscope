@@ -1,10 +1,9 @@
-import Link from "next/link";
-import { Fragment } from "react";
 import { signOut } from "@/auth";
 import { Button } from "@/components/ui/button";
 import type { ActiveContext } from "@/lib/auth-helpers";
-import { ChevronRight, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { isExternalRole } from "@/lib/rbac";
+import { Breadcrumbs } from "./breadcrumbs";
 import { MobileNav } from "./mobile-nav";
 import { ThemeToggle } from "./theme-toggle";
 
@@ -13,9 +12,11 @@ type BreadcrumbSegment = { label: string; href?: string };
 export function AppHeader({
   context,
   breadcrumbs,
+  path,
 }: {
   context: ActiveContext;
   breadcrumbs: BreadcrumbSegment[];
+  path: string;
 }) {
   const { user, organization, membership } = context;
 
@@ -30,32 +31,8 @@ export function AppHeader({
       }}
     >
       <MobileNav externalDiligence={isExternalRole(membership.role)} />
-      {/* Breadcrumb */}
-      <nav className="flex min-w-0 flex-1 items-center gap-1" aria-label="Breadcrumb">
-        {breadcrumbs.length > 0 ? (
-          breadcrumbs.map((crumb, i) => (
-            <Fragment key={i}>
-              {i > 0 && (
-                <ChevronRight className="size-3 shrink-0 text-muted-foreground/40" />
-              )}
-              {crumb.href ? (
-                <Link
-                  href={crumb.href}
-                  className="max-w-[200px] truncate text-sm text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  {crumb.label}
-                </Link>
-              ) : (
-                <span className="max-w-[240px] truncate text-sm font-medium text-foreground">
-                  {crumb.label}
-                </span>
-              )}
-            </Fragment>
-          ))
-        ) : (
-          <span className="text-sm font-medium text-foreground">{organization.name}</span>
-        )}
-      </nav>
+      {/* Breadcrumb — re-resolved on every client navigation */}
+      <Breadcrumbs initial={breadcrumbs} initialPath={path} fallback={organization.name} />
 
       {/* Right side actions */}
       <div className="flex shrink-0 items-center gap-2">
