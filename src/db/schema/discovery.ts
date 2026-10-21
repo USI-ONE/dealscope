@@ -342,3 +342,32 @@ export const DISCOVERY_STATUS_LABEL: Record<string, string> = {
   complete: "Complete",
   cancelled: "Cancelled",
 };
+
+/**
+ * Cached AI narrative for a client-facing report. `kind` is "site" (key =
+ * project id) or "portfolio" (key = hash of the selected project ids).
+ * `sourceHash` fingerprints the walk data it was written from, so the page
+ * can tell when it is out of date.
+ */
+export const discoveryReports = pgTable(
+  "discovery_reports",
+  {
+    id: id(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    reportKey: text("report_key").notNull(),
+    sourceHash: text("source_hash").notNull(),
+    content: jsonb("content").$type<Record<string, unknown>>().notNull(),
+    model: text("model"),
+    createdByMembershipId: uuid("created_by_membership_id").references(
+      () => memberships.id,
+      { onDelete: "set null" },
+    ),
+    ...timestamps,
+  },
+  (t) => ({
+    keyIdx: uniqueIndex("discovery_reports_key_idx").on(t.organizationId, t.kind, t.reportKey),
+  }),
+);

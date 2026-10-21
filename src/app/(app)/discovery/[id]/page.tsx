@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   Camera,
   ChevronLeft,
+  ChartColumn,
   ChevronRight,
   CircleHelp,
   FileSpreadsheet,
@@ -18,7 +19,7 @@ import {
 import { db } from "@/db";
 import { clients, diligenceEngagements, discoveryTopologies } from "@/db/schema";
 import { requireRole } from "@/lib/auth-helpers";
-import { getProject, loadProjectData } from "@/lib/discovery/load";
+import { getProject, loadProjectData, walkTitle } from "@/lib/discovery/load";
 import { answerToText, recordTitle, sectionFields, templateIndex } from "@/lib/discovery/templates";
 import { DiscoveryStatusPill, ProgressRing } from "@/components/discovery/status-pill";
 import { SectionIcon } from "@/components/discovery/section-icon";
@@ -95,6 +96,7 @@ export default async function DiscoveryHubPage({ params }: { params: Promise<{ i
     search.push({ title: p.caption, detail: "Photo caption", section: "Photos", href: `/discovery/${project.id}/photos` });
   }
 
+  const heading = walkTitle(project, data.answers);
   const mapsHref = project.siteAddress ? `https://maps.google.com/?q=${encodeURIComponent(project.siteAddress)}` : null;
 
   return (
@@ -108,7 +110,8 @@ export default async function DiscoveryHubPage({ params }: { params: Promise<{ i
           <DiscoveryStatusPill status={project.status} />
           {project.scheduledDate && <span className="text-xs text-muted-foreground">Walk date {project.scheduledDate}</span>}
         </div>
-        <h1 className="text-2xl font-semibold tracking-tight">{project.name}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{heading.title}</h1>
+        {heading.subtitle && <p className="-mt-1 text-lg font-medium text-primary">{heading.subtitle}</p>}
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
           {client && <span>{client.name}</span>}
           {engagement && (
@@ -184,8 +187,14 @@ export default async function DiscoveryHubPage({ params }: { params: Promise<{ i
           <FileSpreadsheet className="size-5" /> Excel
         </a>
         <Link
+          href={`/discovery/${project.id}/assessment`}
+          className="col-span-2 flex h-14 items-center justify-center gap-2 rounded-2xl border border-violet-600/40 bg-violet-600/5 text-[15px] font-semibold text-violet-700 active:scale-[0.98] dark:text-violet-300"
+        >
+          <ChartColumn className="size-5" /> Client assessment
+        </Link>
+        <Link
           href={`/discovery/${project.id}/install`}
-          className="col-span-2 flex h-14 items-center justify-center gap-2 rounded-2xl border border-emerald-600/40 bg-emerald-600/5 text-[15px] font-semibold text-emerald-700 active:scale-[0.98] sm:col-span-4 dark:text-emerald-400"
+          className="col-span-2 flex h-14 items-center justify-center gap-2 rounded-2xl border border-emerald-600/40 bg-emerald-600/5 text-[15px] font-semibold text-emerald-700 active:scale-[0.98] dark:text-emerald-400"
         >
           <HardHat className="size-5" /> Install team brief
         </Link>

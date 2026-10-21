@@ -15,6 +15,22 @@ import {
 } from "./templates";
 import type { TemplateDef } from "./types";
 
+/**
+ * How a walk is titled: the client / company is the title and the location
+ * (site name) the subtitle, falling back to the walk's own name.
+ */
+export function walkTitle(project: { name: string }, answers: Map<string, AnswerState>) {
+  const text = (k: string) => {
+    const v = answers.get(k)?.value?.v;
+    return typeof v === "string" ? v.trim() : "";
+  };
+  const client = text("cover.client_name");
+  const site = text("cover.site_name") || project.name;
+  return client && client.toLowerCase() !== site.toLowerCase()
+    ? { title: client, subtitle: site }
+    : { title: site, subtitle: "" };
+}
+
 export async function getProject(id: string, organizationId: string) {
   return db.query.discoveryProjects.findFirst({
     where: and(eq(discoveryProjects.id, id), eq(discoveryProjects.organizationId, organizationId)),
@@ -145,7 +161,7 @@ export async function listProjectsWithProgress(organizationId: string) {
       photoCounts,
       naSections: project.naSections,
     });
-    return { project, progress, records, photos };
+    return { project, progress, records, photos, ...walkTitle(project, answers) };
   });
 }
 

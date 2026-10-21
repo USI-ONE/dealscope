@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { inArray } from "drizzle-orm";
-import { Camera, ClipboardList, MapPin, Plus } from "lucide-react";
+import { Camera, ClipboardList, LayoutGrid, MapPin, Plus } from "lucide-react";
 import { db } from "@/db";
 import { clients } from "@/db/schema";
 import { canCtx, requireRole } from "@/lib/auth-helpers";
@@ -35,7 +35,8 @@ export default async function DiscoveryListPage() {
       <ProgressRing pct={r.progress.pct} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <p className="truncate text-[15px] font-semibold">{r.project.name}</p>
+          <p className="truncate text-[15px] font-semibold">{r.title}</p>
+          {r.subtitle && <p className="-mt-0.5 truncate text-sm font-medium text-primary">{r.subtitle}</p>}
         </div>
         <p className="truncate text-[13px] text-muted-foreground">
           {[r.project.clientId ? clientNames.get(r.project.clientId) : null, r.project.siteAddress].filter(Boolean).join(" · ") ||
@@ -63,6 +64,15 @@ export default async function DiscoveryListPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Site discovery</h1>
           <p className="text-sm text-muted-foreground">Pre-install walkthroughs — built for your phone, works offline.</p>
         </div>
+        <div className="flex shrink-0 gap-2">
+        {rows.length >= 2 && (
+          <Link
+            href="/discovery/portfolio"
+            className="flex h-11 items-center gap-1.5 rounded-full border border-border bg-card px-4 text-[15px] font-medium active:scale-95"
+          >
+            <LayoutGrid className="size-5" /> Portfolio
+          </Link>
+        )}
         {canEdit && (
           <Link
             href="/discovery/new"
@@ -71,6 +81,7 @@ export default async function DiscoveryListPage() {
             <Plus className="size-5" /> New walk
           </Link>
         )}
+        </div>
       </div>
 
       {rows.length === 0 && (

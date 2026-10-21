@@ -251,8 +251,9 @@ export default async function InstallBriefPage({ params }: { params: Promise<{ i
 
       <header className="space-y-1.5 border-b-4 border-foreground pb-4">
         <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Install team brief · Remediation work order</p>
-        <h1 className="text-3xl font-bold tracking-tight">{site}</h1>
-        <p className="text-[15px]">{[customer, address].filter(Boolean).join(" · ")}</p>
+        <h1 className="text-3xl font-bold tracking-tight">{customer || site}</h1>
+        {customer && <p className="text-xl font-semibold">{site}</p>}
+        {address && <p className="text-[15px]">{address}</p>}
         <p className="text-sm text-muted-foreground">
           {[
             project.scheduledDate && `Walked ${project.scheduledDate}`,
