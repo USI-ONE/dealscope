@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 
-const PUBLIC_PATHS = ["/sign-in", "/api/auth", "/forgot-password", "/reset-password", "/request/"];
+const PUBLIC_PATHS = ["/sign-in", "/api/auth", "/forgot-password", "/reset-password", "/request/", "/invite/", "/deal-room/"];
 
 /**
  * Forwards the request pathname as `x-pathname` so server components can
