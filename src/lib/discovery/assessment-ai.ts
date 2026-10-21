@@ -12,7 +12,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { getAnthropic } from "@/lib/ai/anthropic";
 import { PublicError } from "@/server/safe-action";
-import { AREAS, COSTS, PHASES } from "./assessment";
+import { AREAS, COSTS, enforceCost, PHASES } from "./assessment";
 
 export const ASSESSMENT_MODEL = "claude-opus-5-5";
 
@@ -26,6 +26,8 @@ Be factual and specific to the facts given. Never invent equipment, numbers, dat
   "$"   minor — a few hours of labor or low-cost parts
   "$$"  moderate — new equipment and/or a day or more of labor
   "$$$" major — significant equipment, cabling or a multi-day project
+
+House rule: any work on a camera system (installing, replacing, or moving cameras to a new platform) is always "$$$".
 
 Phases:
   "Fix now"          safety, security or outage risks that should not wait
@@ -185,12 +187,13 @@ async function run<T>(schema: object, validator: z.ZodType<T>, prompt: string): 
   }
 }
 
-export function writeSiteNarrative(facts: string) {
-  return run(
+export async function writeSiteNarrative(facts: string) {
+  const n = await run(
     SITE_SCHEMA,
     siteSchema,
     `Write the client assessment for this site from the walk findings below. Area keys: ${AREAS.map((a) => `${a.key} = ${a.title}`).join(", ")}. Give an area_impacts entry only for areas that have findings.\n\n${facts}`,
   );
+  return { ...n, roadmap: n.roadmap.map((r) => enforceCost(r)) };
 }
 
 export function writePortfolioNarrative(customer: string, sitesFacts: string) {

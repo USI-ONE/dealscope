@@ -31,6 +31,18 @@ export function walkTitle(project: { name: string }, answers: Map<string, Answer
     : { title: site, subtitle: "" };
 }
 
+/** Location name for a walk (cover.site_name, else the walk name) — used in document titles. */
+export async function walkSiteName(id: string, organizationId: string) {
+  const project = await getProject(id, organizationId);
+  if (!project) return null;
+  const row = await db.query.discoveryAnswers.findFirst({
+    where: and(eq(discoveryAnswers.projectId, project.id), eq(discoveryAnswers.questionKey, "cover.site_name")),
+    columns: { value: true },
+  });
+  const v = row?.value?.v;
+  return (typeof v === "string" && v.trim()) || project.name;
+}
+
 export async function getProject(id: string, organizationId: string) {
   return db.query.discoveryProjects.findFirst({
     where: and(eq(discoveryProjects.id, id), eq(discoveryProjects.organizationId, organizationId)),

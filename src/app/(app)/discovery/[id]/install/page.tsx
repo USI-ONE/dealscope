@@ -13,14 +13,19 @@ import { db } from "@/db";
 import { clients, diligenceEngagements, DISCOVERY_STATUS_LABEL } from "@/db/schema";
 import type { DiscoveryAnswerValue } from "@/db/schema/discovery";
 import { requireRole } from "@/lib/auth-helpers";
-import { getProject, loadProjectData } from "@/lib/discovery/load";
+import { getProject, loadProjectData, walkSiteName } from "@/lib/discovery/load";
 import { photoUrl } from "@/lib/discovery/paths";
 import { photoSrc } from "@/lib/discovery/photo-variants";
 import { answerToText, recordTitle, sectionFields, templateIndex } from "@/lib/discovery/templates";
 import { PrintButton } from "@/components/discovery/print-button";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Install team brief" };
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const ctx = await requireRole("member");
+  const site = await walkSiteName(id, ctx.organization.id);
+  return { title: { absolute: site ? `Install Brief - ${site}` : "Install Brief" } };
+}
 
 const LEVELS = ["Blocker", "High", "Medium", "Low"];
 const ACTION_ORDER = ["Replace", "Decommission", "Needs-eval", "Reuse-reconfig"];

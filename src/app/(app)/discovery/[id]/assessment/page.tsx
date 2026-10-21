@@ -8,9 +8,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth-helpers";
-import { getProject } from "@/lib/discovery/load";
+import { getProject, walkSiteName } from "@/lib/discovery/load";
 import { loadSiteAssessment } from "@/lib/discovery/assessment-store";
-import { COST_LEGEND, COSTS, GRADE_STYLE, PHASES, type Cost, type Phase } from "@/lib/discovery/assessment";
+import { COST_LEGEND, COSTS, enforceCost, GRADE_STYLE, PHASES, type Cost, type Phase } from "@/lib/discovery/assessment";
 import { recordTitle, templateIndex } from "@/lib/discovery/templates";
 import { photoUrl } from "@/lib/discovery/paths";
 import { photoSrc } from "@/lib/discovery/photo-variants";
@@ -22,7 +22,12 @@ import { cn } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 // The "Write summary" server action runs in this page's function; Claude takes ~30-60s.
 export const maxDuration = 300;
-export const metadata = { title: "Site assessment" };
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const ctx = await requireRole("member");
+  const site = await walkSiteName(id, ctx.organization.id);
+  return { title: { absolute: site ? `Site Assessment - ${site}` : "Site Assessment" } };
+}
 
 const EVIDENCE = [
   "photos.exterior",
@@ -54,7 +59,7 @@ export default async function SiteAssessmentPage({ params }: { params: Promise<{
 
   // AI roadmap when written; otherwise fall back to the logged risks.
   const roadmap: Array<{ title: string; why: string; area: string; phase: Phase; cost: Cost | null }> = n
-    ? n.roadmap.map((r) => ({ ...r, area: areaTitle.get(r.area) ?? r.area }))
+    ? n.roadmap.map((r) => enforceCost({ ...r, area: areaTitle.get(r.area) ?? r.area }))
     : a.risks.map((r) => ({ title: r.risk, why: "", area: r.area, phase: LEVEL_PHASE[r.level] ?? "Next 90 days", cost: null }));
 
   // Photos the walker ticked on the Photos tab (one per file); if none are

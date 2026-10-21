@@ -62,6 +62,15 @@ export const COST_LEGEND: Record<Cost, string> = {
   $$$: "Major — significant equipment, cabling or a multi-day project",
 };
 
+/**
+ * House rules that override the AI's cost band. Camera systems (new,
+ * replacement or moving to a new platform) are always a major project.
+ */
+export function enforceCost<T extends { area: string; title: string; why?: string; cost: Cost | string | null }>(item: T): T {
+  if (/camera|cctv|surveillance|\bnvr\b|\bdvr\b/i.test(`${item.title} ${item.why ?? ""}`)) return { ...item, cost: "$$$" };
+  return item;
+}
+
 export type SiteAssessment = {
   projectId: string;
   site: string;
