@@ -29,7 +29,7 @@ import {
   runTestConnection,
 } from "@/lib/integrations/sync-runner";
 import { assertOwned } from "@/server/ownership";
-import { mergeSecrets } from "@/lib/integrations/secrets";
+import { mergeSecrets, unsafeUrlField } from "@/lib/integrations/secrets";
 import { clients } from "@/db/schema";
 
 const KINDS = [
@@ -121,6 +121,8 @@ export const updateConnectionConfig = authedAction
       ),
     });
     if (!target) throw new PublicError("Connection not found");
+    const urlError = unsafeUrlField(parsedInput.configJson);
+    if (urlError) throw new PublicError(urlError);
 
     await db
       .update(vendorConnections)

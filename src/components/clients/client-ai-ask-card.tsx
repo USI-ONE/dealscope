@@ -13,20 +13,14 @@
  * added later if the user wants.
  */
 import { useRef, useState } from "react";
-import {
-  ChevronDown,
-  ChevronRight,
-  Loader2,
-  Send,
-  Sparkles,
-  Trash2,
-} from "lucide-react";
+import { ChevronDown, ChevronRight, Loader2, Send, Sparkles, Trash2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize from "rehype-sanitize";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { safeMarkdownComponents } from "@/components/ui/safe-markdown";
 import { Textarea } from "@/components/ui/textarea";
 
 type Turn = {
@@ -138,9 +132,8 @@ export function ClientAiAskCard({
               Ask about {clientName}
             </CardTitle>
             <p className="mt-1 text-xs text-muted-foreground">
-              Natural-language questions answered from this client&apos;s
-              TechOS record. Scoped strictly to <strong>{clientName}</strong> —
-              never bleeds to other clients.
+              Natural-language questions answered from this client&apos;s TechOS record. Scoped
+              strictly to <strong>{clientName}</strong> — never bleeds to other clients.
             </p>
           </div>
         </button>
@@ -175,10 +168,11 @@ export function ClientAiAskCard({
                       <Badge variant="secondary" className="text-[10px] uppercase">
                         TechOS AI
                       </Badge>
-                      <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:font-semibold prose-h1:text-base prose-h2:text-sm prose-h3:text-sm prose-table:text-xs prose-th:px-2 prose-th:py-1 prose-td:px-2 prose-td:py-1">
+                      <div className="prose prose-sm dark:prose-invert prose-headings:font-semibold prose-h1:text-base prose-h2:text-sm prose-h3:text-sm prose-table:text-xs prose-th:px-2 prose-th:py-1 prose-td:px-2 prose-td:py-1 max-w-none">
                         <ReactMarkdown
                           remarkPlugins={[remarkGfm]}
                           rehypePlugins={[rehypeSanitize]}
+                          components={safeMarkdownComponents}
                         >
                           {t.content}
                         </ReactMarkdown>
@@ -192,7 +186,7 @@ export function ClientAiAskCard({
                   <Badge variant="secondary" className="text-[10px] uppercase">
                     TechOS AI
                   </Badge>
-                  <div className="prose prose-sm max-w-none whitespace-pre-wrap dark:prose-invert">
+                  <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">
                     {streamed}
                     <span className="inline-block size-2 animate-pulse rounded-full bg-primary align-middle" />
                   </div>
@@ -259,9 +253,8 @@ export function ClientAiAskCard({
             </Button>
           </form>
           <p className="text-[10px] text-muted-foreground">
-            Tip: shift+enter for a new line. Answers come from this
-            client&apos;s TechOS record only — never another client&apos;s
-            data and never the open internet.
+            Tip: shift+enter for a new line. Answers come from this client&apos;s TechOS record only
+            — never another client&apos;s data and never the open internet.
           </p>
         </CardContent>
       )}

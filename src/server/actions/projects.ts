@@ -27,10 +27,13 @@
  * split by surface (project / milestone / task / status / document).
  */
 import { revalidatePath } from "next/cache";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, sql, type SQL } from "drizzle-orm";
+import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import { db } from "@/db";
 import {
+  clients,
+  memberships,
   projects,
   projectMilestones,
   projectTasks,
@@ -43,6 +46,7 @@ import {
   projectDependencies,
 } from "@/db/schema";
 import { authedAction, authorize, PublicError } from "@/server/safe-action";
+import { assertOwned, assertOwnedMany } from "@/server/ownership";
 import {
   getProjectTemplate,
   type ProjectKind,
@@ -122,6 +126,29 @@ async function loadProjectOrThrow(
   return p;
 }
 
+/** Like assertOwned, but the row must also belong to the given project. */
+async function assertInProject(
+  table: PgTable & { id: PgColumn; organizationId: PgColumn; projectId: PgColumn },
+  id: string | null | undefined,
+  projectId: string,
+  organizationId: string,
+  what: string,
+) {
+  if (!id) return;
+  const [row] = await db
+    .select({ id: table.id })
+    .from(table as PgTable)
+    .where(
+      and(
+        eq(table.id, id),
+        eq(table.projectId, projectId),
+        eq(table.organizationId, organizationId),
+      ) as SQL,
+    )
+    .limit(1);
+  if (!row) throw new PublicError(`${what} not in this project`);
+}
+
 function revalidateProject(projectId: string) {
   revalidatePath("/projects");
   revalidatePath(`/projects/${projectId}`);
@@ -154,6 +181,13 @@ export const createProject = authedAction
   .schema(createProjectSchema)
   .action(async ({ parsedInput, ctx }) => {
     await authorize("create", "project");
+    await assertOwned(clients, parsedInput.clientId, ctx.organization.id, "Client");
+    await assertOwnedMany(
+      memberships,
+      [parsedInput.primaryPmMembershipId, parsedInput.leadEngineerMembershipId],
+      ctx.organization.id,
+      "Member",
+    );
 
     const code = await nextProjectCode(ctx.organization.id);
     const template =
@@ -272,6 +306,12 @@ export const updateProject = authedAction
   .schema(updateProjectSchema)
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "project");
+    await assertOwnedMany(
+      memberships,
+      [parsedInput.primaryPmMembershipId, parsedInput.leadEngineerMembershipId],
+      ctx.organization.id,
+      "Member",
+    );
     const existing = await loadProjectOrThrow(
       ctx.organization.id,
       parsedInput.projectId,
@@ -359,9 +399,17 @@ export const createMilestone = authedAction
   )
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "project");
+    await assertOwned(memberships, parsedInput.assigneeMembershipId, ctx.organization.id, "Assignee");
     const proj = await loadProjectOrThrow(
       ctx.organization.id,
       parsedInput.projectId,
+    );
+    await assertInProject(
+      projectStakeholders,
+      parsedInput.stakeholderId,
+      proj.id,
+      ctx.organization.id,
+      "Stakeholder",
     );
 
     // Default position = N (next slot after existing milestones).
@@ -427,6 +475,7 @@ export const updateMilestone = authedAction
   )
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "project");
+    await assertOwned(memberships, parsedInput.assigneeMembershipId, ctx.organization.id, "Assignee");
     const existing = await db.query.projectMilestones.findFirst({
       where: and(
         eq(projectMilestones.id, parsedInput.milestoneId),
@@ -434,6 +483,13 @@ export const updateMilestone = authedAction
       ),
     });
     if (!existing) throw new PublicError("Milestone not found");
+    await assertInProject(
+      projectStakeholders,
+      parsedInput.stakeholderId,
+      existing.projectId,
+      ctx.organization.id,
+      "Stakeholder",
+    );
 
     const patch: Record<string, unknown> = { updatedAt: new Date() };
     if (parsedInput.name !== undefined) patch.name = parsedInput.name.trim();
@@ -508,9 +564,24 @@ export const createTask = authedAction
   )
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "project");
+    await assertOwned(memberships, parsedInput.assigneeMembershipId, ctx.organization.id, "Assignee");
     const proj = await loadProjectOrThrow(
       ctx.organization.id,
       parsedInput.projectId,
+    );
+    await assertInProject(
+      projectMilestones,
+      parsedInput.milestoneId,
+      proj.id,
+      ctx.organization.id,
+      "Milestone",
+    );
+    await assertInProject(
+      projectStakeholders,
+      parsedInput.stakeholderId,
+      proj.id,
+      ctx.organization.id,
+      "Stakeholder",
     );
 
     // Subtask validation: the parent must exist, be in this same
@@ -593,6 +664,7 @@ export const updateTask = authedAction
   )
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "project");
+    await assertOwned(memberships, parsedInput.assigneeMembershipId, ctx.organization.id, "Assignee");
     const existing = await db.query.projectTasks.findFirst({
       where: and(
         eq(projectTasks.id, parsedInput.taskId),
@@ -600,6 +672,20 @@ export const updateTask = authedAction
       ),
     });
     if (!existing) throw new PublicError("Task not found");
+    await assertInProject(
+      projectMilestones,
+      parsedInput.milestoneId,
+      existing.projectId,
+      ctx.organization.id,
+      "Milestone",
+    );
+    await assertInProject(
+      projectStakeholders,
+      parsedInput.stakeholderId,
+      existing.projectId,
+      ctx.organization.id,
+      "Stakeholder",
+    );
 
     const patch: Record<string, unknown> = { updatedAt: new Date() };
     for (const [k, v] of Object.entries(parsedInput)) {
@@ -1069,6 +1155,27 @@ export const createAttachment = authedAction
       ctx.organization.id,
       parsedInput.projectId,
     );
+    await assertInProject(
+      projectMilestones,
+      parsedInput.milestoneId,
+      proj.id,
+      ctx.organization.id,
+      "Milestone",
+    );
+    await assertInProject(
+      projectTasks,
+      parsedInput.taskId,
+      proj.id,
+      ctx.organization.id,
+      "Task",
+    );
+    await assertInProject(
+      projectComments,
+      parsedInput.commentId,
+      proj.id,
+      ctx.organization.id,
+      "Comment",
+    );
 
     const [a] = await db
       .insert(projectAttachments)
@@ -1409,6 +1516,13 @@ export const recordTaskSignoff = authedAction
       columns: { id: true, projectId: true, stakeholderId: true },
     });
     if (!existing) throw new PublicError("Task not found");
+    await assertInProject(
+      projectStakeholders,
+      parsedInput.signedOffByStakeholderId,
+      existing.projectId,
+      ctx.organization.id,
+      "Stakeholder",
+    );
     const signedOffBy =
       parsedInput.signedOffByStakeholderId ?? existing.stakeholderId;
     // Mostly a sanity guard — the operator could record a sign-off
@@ -1472,6 +1586,13 @@ export const recordMilestoneSignoff = authedAction
       columns: { id: true, projectId: true, stakeholderId: true },
     });
     if (!existing) throw new PublicError("Milestone not found");
+    await assertInProject(
+      projectStakeholders,
+      parsedInput.signedOffByStakeholderId,
+      existing.projectId,
+      ctx.organization.id,
+      "Stakeholder",
+    );
     const signedOffBy =
       parsedInput.signedOffByStakeholderId ?? existing.stakeholderId;
     const signedOffAt = parsedInput.signedOffAt

@@ -24,8 +24,12 @@ import {
   itOrderEvents,
   itOrderLines,
   itOrders,
+  memberships,
+  vendors,
 } from "@/db/schema";
+import { AuthError, requireContext } from "@/lib/auth-helpers";
 import { authedAction, authorize, PublicError } from "@/server/safe-action";
+import { assertOwned } from "@/server/ownership";
 import { buildHardwareInvoiceFromOrder } from "@/lib/invoices/generate";
 
 async function loadOrder(id: string, organizationId: string) {
@@ -123,6 +127,13 @@ export const createItOrder = authedAction
       });
       if (!c) throw new PublicError("Client not found");
     }
+    await assertOwned(
+      memberships,
+      parsedInput.procurementOwnerMembershipId,
+      ctx.organization.id,
+      "Procurement owner",
+    );
+    await assertOwned(vendors, parsedInput.vendorId, ctx.organization.id, "Vendor");
     const refCode = await nextRefCode(ctx.organization.id);
     const [created] = await db
       .insert(itOrders)
@@ -163,6 +174,14 @@ export const updateItOrder = authedAction
   .schema(baseSchema.partial().extend({ orderId: z.string().uuid() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "client");
+    await assertOwned(clients, parsedInput.clientId, ctx.organization.id, "Client");
+    await assertOwned(
+      memberships,
+      parsedInput.procurementOwnerMembershipId,
+      ctx.organization.id,
+      "Procurement owner",
+    );
+    await assertOwned(vendors, parsedInput.vendorId, ctx.organization.id, "Vendor");
     const o = await loadOrder(parsedInput.orderId, ctx.organization.id);
     if (o.status === "complete" || o.status === "cancelled") {
       throw new PublicError(
@@ -244,6 +263,7 @@ export const addItOrderLine = authedAction
   .schema(lineSchema)
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "client");
+    await assertOwned(vendors, parsedInput.vendorId, ctx.organization.id, "Vendor");
     const o = await loadOrder(parsedInput.orderId, ctx.organization.id);
     const siblings = await db
       .select({ position: itOrderLines.position })
@@ -298,6 +318,7 @@ export const updateItOrderLine = authedAction
   )
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "client");
+    await assertOwned(vendors, parsedInput.vendorId, ctx.organization.id, "Vendor");
     const o = await loadOrder(parsedInput.orderId, ctx.organization.id);
     const line = await db.query.itOrderLines.findFirst({
       where: and(
@@ -798,6 +819,8 @@ export const deleteItOrder = authedAction
  * READ HELPERS
  * ========================================================================== */
 export async function listItOrders(organizationId: string) {
+  const ctx = await requireContext();
+  if (organizationId !== ctx.organization.id) throw new AuthError("FORBIDDEN", "Forbidden");
   return db
     .select()
     .from(itOrders)
@@ -809,6 +832,8 @@ export async function loadItOrderFull(
   orderId: string,
   organizationId: string,
 ) {
+  const ctx = await requireContext();
+  if (organizationId !== ctx.organization.id) throw new AuthError("FORBIDDEN", "Forbidden");
   const order = await db.query.itOrders.findFirst({
     where: and(
       eq(itOrders.id, orderId),

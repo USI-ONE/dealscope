@@ -3,7 +3,7 @@
 import { and, asc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { diligenceDataRequests } from "@/db/schema";
+import { diligenceDataRequests, diligenceVaultFiles } from "@/db/schema";
 import { guestAction, authorize, PublicError } from "@/server/safe-action";
 import { assertOwned } from "@/server/ownership";
 import { diligenceEngagements } from "@/db/schema";
@@ -60,6 +60,20 @@ export const updateDataRequest = guestAction
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "diligence");
     const { requestId, engagementId, ...updates } = parsedInput;
+    if (updates.fulfilledByFileId) {
+      const [file] = await db
+        .select({ id: diligenceVaultFiles.id })
+        .from(diligenceVaultFiles)
+        .where(
+          and(
+            eq(diligenceVaultFiles.id, updates.fulfilledByFileId),
+            eq(diligenceVaultFiles.engagementId, engagementId),
+            eq(diligenceVaultFiles.organizationId, ctx.organization.id),
+          ),
+        )
+        .limit(1);
+      if (!file) throw new PublicError("File not found");
+    }
     await db
       .update(diligenceDataRequests)
       .set({ ...updates, updatedAt: new Date() })

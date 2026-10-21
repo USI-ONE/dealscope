@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { diligenceSessions } from "@/db/schema";
+import { aiLimited } from "@/lib/security/ai-guard";
 import { requirePermission } from "@/lib/auth-helpers";
 
 export const runtime = "nodejs";
@@ -14,6 +15,8 @@ export async function POST(
 ) {
   try {
     const ctx = await requirePermission("update", "diligence");
+    const limited = await aiLimited(ctx);
+    if (limited) return limited;
     const { sid } = await params;
 
     const session = await db.query.diligenceSessions.findFirst({

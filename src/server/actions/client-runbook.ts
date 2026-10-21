@@ -11,7 +11,9 @@ import {
   clientMailboxes,
   clientObservations,
   clients,
+  memberships,
 } from "@/db/schema";
+import { assertOwned } from "@/server/ownership";
 import { authedAction, authorize, PublicError } from "@/server/safe-action";
 
 async function assertClient(clientId: string, organizationId: string) {
@@ -230,6 +232,7 @@ export const createObservation = authedAction
   .action(async ({ parsedInput, ctx }) => {
     await authorize("create", "client");
     await assertClient(parsedInput.clientId, ctx.organization.id);
+    await assertOwned(memberships, parsedInput.assignedToMembershipId, ctx.organization.id, "Assignee");
     const [created] = await db
       .insert(clientObservations)
       .values({
@@ -253,6 +256,7 @@ export const updateObservation = authedAction
   .schema(observationSchema.extend({ observationId: z.string().uuid() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "client");
+    await assertOwned(memberships, parsedInput.assignedToMembershipId, ctx.organization.id, "Assignee");
     const existing = await db.query.clientObservations.findFirst({
       where: and(
         eq(clientObservations.id, parsedInput.observationId),

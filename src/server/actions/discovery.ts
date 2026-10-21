@@ -24,12 +24,14 @@ import {
   discoveryProjects,
   discoveryRecords,
   discoveryTasks,
+  memberships,
 } from "@/db/schema";
 import { getTemplate, templateIndex } from "@/lib/discovery/templates";
 import { photoPathPrefix } from "@/lib/discovery/paths";
 import { variantPath } from "@/lib/discovery/photo-variants";
 import { isOwnPath, urlMatchesPathname } from "@/lib/security/blob-policy";
 import { authedAction, authorize, PublicError } from "@/server/safe-action";
+import { assertOwned } from "@/server/ownership";
 
 async function assertProject(projectId: string, organizationId: string) {
   const p = await db.query.discoveryProjects.findFirst({
@@ -100,6 +102,7 @@ export const createDiscoveryProject = authedAction
   .schema(projectSchema)
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "project");
+    await assertOwned(memberships, parsedInput.leadMembershipId, ctx.organization.id, "Member");
     const { clientName } = await validateLinks(parsedInput, ctx.organization.id);
 
     const [created] = await db
@@ -144,6 +147,7 @@ export const updateDiscoveryProject = authedAction
     await authorize("update", "project");
     const p = await assertProject(parsedInput.projectId, ctx.organization.id);
     await validateLinks(parsedInput, ctx.organization.id);
+    await assertOwned(memberships, parsedInput.leadMembershipId, ctx.organization.id, "Member");
     await db
       .update(discoveryProjects)
       .set({

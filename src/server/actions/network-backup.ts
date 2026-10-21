@@ -8,11 +8,15 @@ import {
   clientBackupStrategy,
   clientBackupSystems,
   clientNetworkCircuits,
+  clientLocations,
   clientNetworkSegments,
   clients,
+  services,
+  vendors,
 } from "@/db/schema";
 import { can } from "@/lib/rbac";
 import { authedAction, authorize, PublicError } from "@/server/safe-action";
+import { assertOwned } from "@/server/ownership";
 
 async function assertClient(clientId: string, organizationId: string) {
   const c = await db.query.clients.findFirst({
@@ -23,6 +27,15 @@ async function assertClient(clientId: string, organizationId: string) {
   });
   if (!c) throw new PublicError("Client not found");
   return c;
+}
+
+async function assertRefsOwned(
+  input: { locationId?: string | null; vendorId?: string | null; serviceId?: string | null },
+  organizationId: string,
+) {
+  await assertOwned(clientLocations, input.locationId, organizationId, "Location");
+  await assertOwned(vendors, input.vendorId, organizationId, "Vendor");
+  await assertOwned(services, input.serviceId, organizationId, "Service");
 }
 
 const onePasswordUrl = z
@@ -69,6 +82,7 @@ export const createNetworkCircuit = authedAction
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "client");
     await assertClient(parsedInput.clientId, ctx.organization.id);
+    await assertRefsOwned(parsedInput, ctx.organization.id);
     const canFinance = can("update", "finance", {
       role: ctx.membership.role,
       financeAccess: ctx.membership.financeAccess,
@@ -104,6 +118,7 @@ export const updateNetworkCircuit = authedAction
   .schema(circuitSchema.extend({ circuitId: z.string().uuid() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "client");
+    await assertRefsOwned(parsedInput, ctx.organization.id);
     const canFinance = can("update", "finance", {
       role: ctx.membership.role,
       financeAccess: ctx.membership.financeAccess,
@@ -185,6 +200,7 @@ export const createNetworkSegment = authedAction
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "client");
     await assertClient(parsedInput.clientId, ctx.organization.id);
+    await assertRefsOwned(parsedInput, ctx.organization.id);
     const [created] = await db
       .insert(clientNetworkSegments)
       .values({
@@ -209,6 +225,7 @@ export const updateNetworkSegment = authedAction
   .schema(segmentSchema.extend({ segmentId: z.string().uuid() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "client");
+    await assertRefsOwned(parsedInput, ctx.organization.id);
     await db
       .update(clientNetworkSegments)
       .set({
@@ -348,6 +365,7 @@ export const createBackupSystem = authedAction
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "client");
     await assertClient(parsedInput.clientId, ctx.organization.id);
+    await assertRefsOwned(parsedInput, ctx.organization.id);
     const [created] = await db
       .insert(clientBackupSystems)
       .values({
@@ -375,6 +393,7 @@ export const updateBackupSystem = authedAction
   .schema(systemSchema.extend({ systemId: z.string().uuid() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "client");
+    await assertRefsOwned(parsedInput, ctx.organization.id);
     await db
       .update(clientBackupSystems)
       .set({

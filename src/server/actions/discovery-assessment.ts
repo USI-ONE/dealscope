@@ -12,11 +12,13 @@ import { ASSESSMENT_MODEL, writePortfolioNarrative, writeSiteNarrative } from "@
 import { loadPortfolio, loadSiteAssessment, portfolioFacts, saveReport } from "@/lib/discovery/assessment-store";
 import { getProject } from "@/lib/discovery/load";
 import { authedAction, authorize, PublicError } from "@/server/safe-action";
+import { aiGuard } from "@/lib/security/ai-guard";
 
 export const generateSiteAssessment = authedAction
   .schema(z.object({ projectId: z.string().uuid() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "project");
+    await aiGuard(ctx);
     if (!isAiConfigured()) throw new PublicError("AI isn't configured (ANTHROPIC_API_KEY).");
     const project = await getProject(parsedInput.projectId, ctx.organization.id);
     if (!project) throw new PublicError("Site walk not found");
@@ -40,6 +42,7 @@ export const generatePortfolioAssessment = authedAction
   .schema(z.object({ projectIds: z.array(z.string().uuid()).min(2).max(60) }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "project");
+    await aiGuard(ctx);
     if (!isAiConfigured()) throw new PublicError("AI isn't configured (ANTHROPIC_API_KEY).");
 
     const { assessments, key, hash, customer } = await loadPortfolio(ctx.organization.id, parsedInput.projectIds);

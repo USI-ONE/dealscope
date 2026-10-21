@@ -12,7 +12,8 @@ import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { domains, licenses, services } from "@/db/schema";
+import { clients, domains, licenses, memberships, services, vendors } from "@/db/schema";
+import { assertOwned } from "@/server/ownership";
 import { authedAction, authorize, PublicError } from "@/server/safe-action";
 
 const targetKind = z.enum(["license", "subscription", "domain"]);
@@ -116,6 +117,7 @@ export const assignOwner = authedAction
   )
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "client");
+    await assertOwned(memberships, parsedInput.ownerMembershipId, ctx.organization.id, "Owner");
     const owner = parsedInput.ownerMembershipId;
 
     if (parsedInput.kind === "license") {
@@ -176,6 +178,9 @@ export const createDomain = authedAction
   .schema(domainSchema)
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "client");
+    await assertOwned(clients, parsedInput.clientId, ctx.organization.id, "Client");
+    await assertOwned(vendors, parsedInput.vendorId, ctx.organization.id, "Vendor");
+    await assertOwned(services, parsedInput.registrarServiceId, ctx.organization.id, "Registrar service");
     const [created] = await db
       .insert(domains)
       .values({
@@ -202,6 +207,9 @@ export const updateDomain = authedAction
   .schema(domainSchema.extend({ domainId: z.string().uuid() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "client");
+    await assertOwned(clients, parsedInput.clientId, ctx.organization.id, "Client");
+    await assertOwned(vendors, parsedInput.vendorId, ctx.organization.id, "Vendor");
+    await assertOwned(services, parsedInput.registrarServiceId, ctx.organization.id, "Registrar service");
     const existing = await db.query.domains.findFirst({
       where: and(
         eq(domains.id, parsedInput.domainId),

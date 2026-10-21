@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { safeRedirect } from "@/lib/security/safe-redirect";
 import { authenticate } from "./auth-action";
 
 export const metadata = { title: "Sign in" };
@@ -21,7 +22,7 @@ export default async function SignInPage({
   searchParams: Promise<{ callbackUrl?: string; error?: string; email?: string; reset?: string }>;
 }) {
   const params = await searchParams;
-  const callbackUrl = params.callbackUrl ?? "/";
+  const callbackUrl = safeRedirect(params.callbackUrl);
   const error = params.error;
   const prefillEmail = params.email ?? "";
   const errorMessage = error

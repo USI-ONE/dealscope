@@ -16,14 +16,19 @@ import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import {
+  clientLocations,
   clients,
   diligenceEngagements,
+  hardware,
+  memberships,
   siteSurveyItems,
   siteSurveyPhotos,
   siteSurveys,
 } from "@/db/schema";
 import { isOwnPath, urlMatchesPathname } from "@/lib/security/blob-policy";
+import { AuthError, requireContext } from "@/lib/auth-helpers";
 import { authedAction, authorize, PublicError } from "@/server/safe-action";
+import { assertOwned } from "@/server/ownership";
 
 async function assertSurvey(surveyId: string, organizationId: string) {
   const s = await db.query.siteSurveys.findFirst({
@@ -93,6 +98,8 @@ export const createSiteSurvey = authedAction
       });
       if (!c) throw new PublicError("Client not found");
     }
+    await assertOwned(clientLocations, parsedInput.clientLocationId, ctx.organization.id, "Location");
+    await assertOwned(memberships, parsedInput.leadTechnicianMembershipId, ctx.organization.id, "Member");
 
     // If only engagementId was provided AND that engagement has its own
     // clientId set (the buyer), inherit it onto the survey so the survey
@@ -135,6 +142,8 @@ export const updateSiteSurvey = authedAction
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "client");
     const s = await assertSurvey(parsedInput.surveyId, ctx.organization.id);
+    await assertOwned(clientLocations, parsedInput.clientLocationId, ctx.organization.id, "Location");
+    await assertOwned(memberships, parsedInput.leadTechnicianMembershipId, ctx.organization.id, "Member");
     await db
       .update(siteSurveys)
       .set({
@@ -297,6 +306,7 @@ export const addSurveyItem = authedAction
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "client");
     const s = await assertSurvey(parsedInput.surveyId, ctx.organization.id);
+    await assertOwned(hardware, parsedInput.hardwareId, ctx.organization.id, "Hardware");
     const [created] = await db
       .insert(siteSurveyItems)
       .values({
@@ -346,6 +356,7 @@ export const updateSurveyItem = authedAction
       ),
     });
     if (!item) throw new PublicError("Item not found");
+    await assertOwned(hardware, parsedInput.hardwareId, ctx.organization.id, "Hardware");
     await db
       .update(siteSurveyItems)
       .set({
@@ -522,6 +533,16 @@ export const updateSurveyPhoto = authedAction
       ),
     });
     if (!photo) throw new PublicError("Photo not found");
+    if (parsedInput.itemId) {
+      const item = await db.query.siteSurveyItems.findFirst({
+        where: and(
+          eq(siteSurveyItems.id, parsedInput.itemId),
+          eq(siteSurveyItems.surveyId, photo.surveyId),
+        ),
+        columns: { id: true },
+      });
+      if (!item) throw new PublicError("Item not found");
+    }
     await db
       .update(siteSurveyPhotos)
       .set({
@@ -571,6 +592,8 @@ export async function listSurveysForClient(
   clientId: string,
   organizationId: string,
 ) {
+  const ctx = await requireContext();
+  if (organizationId !== ctx.organization.id) throw new AuthError("FORBIDDEN", "Forbidden");
   return db
     .select()
     .from(siteSurveys)
@@ -587,6 +610,8 @@ export async function listSurveysForEngagement(
   engagementId: string,
   organizationId: string,
 ) {
+  const ctx = await requireContext();
+  if (organizationId !== ctx.organization.id) throw new AuthError("FORBIDDEN", "Forbidden");
   return db
     .select()
     .from(siteSurveys)

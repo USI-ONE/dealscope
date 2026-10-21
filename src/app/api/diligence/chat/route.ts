@@ -7,6 +7,7 @@ import {
   loadEngagementContext,
 } from "@/lib/ai/anthropic";
 import { canCtx, requireContext } from "@/lib/auth-helpers";
+import { aiLimited } from "@/lib/security/ai-guard";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -34,6 +35,8 @@ const bodySchema = z.object({
  */
 export async function POST(req: NextRequest) {
   const ctx = await requireContext({ allowExternal: true });
+  const limited = await aiLimited(ctx);
+  if (limited) return limited;
   if (!canCtx("update", "diligence", ctx)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }

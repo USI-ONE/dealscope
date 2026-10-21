@@ -6,9 +6,12 @@ import { z } from "zod";
 import { db } from "@/db";
 import {
   clientEvents,
+  clientProcedures,
   clientRecurringTasks,
   clients,
+  memberships,
 } from "@/db/schema";
+import { assertOwned } from "@/server/ownership";
 import { authedAction, authorize, PublicError } from "@/server/safe-action";
 
 async function assertClient(clientId: string, organizationId: string) {
@@ -43,6 +46,8 @@ export const createRecurringTask = authedAction
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "client");
     await assertClient(parsedInput.clientId, ctx.organization.id);
+    await assertOwned(memberships, parsedInput.ownerMembershipId, ctx.organization.id, "Owner");
+    await assertOwned(clientProcedures, parsedInput.procedureId, ctx.organization.id, "Procedure");
     const [created] = await db
       .insert(clientRecurringTasks)
       .values({
@@ -66,6 +71,8 @@ export const updateRecurringTask = authedAction
   .schema(recurringTaskSchema.extend({ taskId: z.string().uuid() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "client");
+    await assertOwned(memberships, parsedInput.ownerMembershipId, ctx.organization.id, "Owner");
+    await assertOwned(clientProcedures, parsedInput.procedureId, ctx.organization.id, "Procedure");
     await db
       .update(clientRecurringTasks)
       .set({

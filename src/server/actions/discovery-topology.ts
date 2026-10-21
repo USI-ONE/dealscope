@@ -28,6 +28,7 @@ import {
   type TopologySourceKind,
 } from "@/lib/discovery/topology-ai";
 import { authedAction, authorize, PublicError } from "@/server/safe-action";
+import { aiGuard } from "@/lib/security/ai-guard";
 
 const sourceKind = z.enum(Object.keys(TOPOLOGY_SOURCE_KINDS) as [TopologySourceKind, ...TopologySourceKind[]]);
 
@@ -91,6 +92,7 @@ export const createTopologyFromPhotos = authedAction
   )
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "project");
+    await aiGuard(ctx);
     const p = await assertProject(parsedInput.projectId, ctx.organization.id);
     const urls = await photoUrls(p.id, parsedInput.photoIds);
     if (!urls.length) throw new PublicError("Photos haven't finished uploading yet");
@@ -121,6 +123,7 @@ export const refineTopology = authedAction
   .schema(z.object({ topologyId: z.string().uuid(), correction: z.string().trim().min(3).max(2_000) }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "project");
+    await aiGuard(ctx);
     const t = await assertTopology(parsedInput.topologyId, ctx.organization.id);
     const urls = await photoUrls(t.projectId, t.sourcePhotoIds);
     if (!urls.length) throw new PublicError("Source photos are gone — create a new topology");
@@ -138,6 +141,7 @@ export const retryTopology = authedAction
   .schema(z.object({ topologyId: z.string().uuid() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "project");
+    await aiGuard(ctx);
     const t = await assertTopology(parsedInput.topologyId, ctx.organization.id);
     const urls = await photoUrls(t.projectId, t.sourcePhotoIds);
     if (!urls.length) throw new PublicError("Source photos are gone — create a new topology");

@@ -22,6 +22,7 @@ import {
   type ExtractedAnswer,
 } from "@/lib/ai/anthropic";
 import { requirePermission } from "@/lib/auth-helpers";
+import { aiLimited } from "@/lib/security/ai-guard";
 import { extractFiles, type FilePart } from "@/lib/diligence/file-extract";
 
 export const runtime = "nodejs";
@@ -85,6 +86,8 @@ export async function POST(
   let ctx;
   try {
     ctx = await requirePermission("update", "diligence");
+    const limited = await aiLimited(ctx);
+    if (limited) return limited;
   } catch {
     return Response.json(
       { ok: false, error: "Not authorized" },

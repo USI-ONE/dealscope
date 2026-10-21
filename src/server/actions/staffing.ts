@@ -386,6 +386,7 @@ export const createInitiative = authedAction
   .schema(initiativeSchema)
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "client");
+    await assertOwned(clients, parsedInput.clientId, ctx.organization.id, "Client");
     const [created] = await db
       .insert(strategicInitiatives)
       .values({
@@ -410,6 +411,7 @@ export const updateInitiative = authedAction
   .schema(initiativeSchema.extend({ id: z.string().uuid() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "client");
+    await assertOwned(clients, parsedInput.clientId, ctx.organization.id, "Client");
 
     // Capture the previous clientId so we can recompute its tier3 too
     // if the initiative is being moved.
@@ -419,6 +421,7 @@ export const updateInitiative = authedAction
         eq(strategicInitiatives.organizationId, ctx.organization.id),
       ),
     });
+    if (!prev) throw new PublicError("Initiative not found");
 
     await db
       .update(strategicInitiatives)
@@ -432,9 +435,14 @@ export const updateInitiative = authedAction
         notes: parsedInput.notes?.trim() || null,
         updatedAt: new Date(),
       })
-      .where(eq(strategicInitiatives.id, parsedInput.id));
+      .where(
+        and(
+          eq(strategicInitiatives.id, parsedInput.id),
+          eq(strategicInitiatives.organizationId, ctx.organization.id),
+        ),
+      );
 
-    if (prev?.clientId && prev.clientId !== parsedInput.clientId) {
+    if (prev.clientId && prev.clientId !== parsedInput.clientId) {
       await recomputeClientTier3(prev.clientId, ctx.organization.id);
     }
     if (parsedInput.clientId) {
@@ -457,7 +465,12 @@ export const deleteInitiative = authedAction
     });
     await db
       .delete(strategicInitiatives)
-      .where(eq(strategicInitiatives.id, parsedInput.id));
+      .where(
+        and(
+          eq(strategicInitiatives.id, parsedInput.id),
+          eq(strategicInitiatives.organizationId, ctx.organization.id),
+        ),
+      );
     if (prev?.clientId)
       await recomputeClientTier3(prev.clientId, ctx.organization.id);
     revalidatePath("/staffing");

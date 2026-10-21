@@ -5,6 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import {
+  clientLocations,
   clients,
   contracts,
   hardware,
@@ -13,6 +14,7 @@ import {
   services,
   vendors,
 } from "@/db/schema";
+import { assertOwned } from "@/server/ownership";
 import { authedAction, authorize, PublicError } from "@/server/safe-action";
 import { can } from "@/lib/rbac";
 
@@ -215,6 +217,8 @@ export const createContract = authedAction
   .schema(contractSchema)
   .action(async ({ parsedInput, ctx }) => {
     await authorize("create", "contract");
+    await assertOwned(vendors, parsedInput.vendorId, ctx.organization.id, "Vendor");
+    await assertOwned(clients, parsedInput.clientId, ctx.organization.id, "Client");
     const canWriteFinance = can("update", "finance", {
       role: ctx.membership.role,
       financeAccess: ctx.membership.financeAccess,
@@ -253,6 +257,8 @@ export const updateContract = authedAction
   .schema(contractSchema.extend({ contractId: z.string().uuid() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "contract");
+    await assertOwned(vendors, parsedInput.vendorId, ctx.organization.id, "Vendor");
+    await assertOwned(clients, parsedInput.clientId, ctx.organization.id, "Client");
     const canWriteFinance = can("update", "finance", {
       role: ctx.membership.role,
       financeAccess: ctx.membership.financeAccess,
@@ -389,6 +395,8 @@ export const createHardware = authedAction
   .action(async ({ parsedInput, ctx }) => {
     await authorize("create", "hardware");
     await assertClientInOrg(parsedInput.clientId, ctx.organization.id);
+    await assertOwned(clientLocations, parsedInput.locationId, ctx.organization.id, "Location");
+    await assertOwned(vendors, parsedInput.vendorId, ctx.organization.id, "Vendor");
 
     const [created] = await db
       .insert(hardware)
@@ -438,6 +446,8 @@ export const updateHardware = authedAction
   .schema(hardwareSchema.extend({ hardwareId: z.string().uuid() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "hardware");
+    await assertOwned(clientLocations, parsedInput.locationId, ctx.organization.id, "Location");
+    await assertOwned(vendors, parsedInput.vendorId, ctx.organization.id, "Vendor");
     // Pull existing row first so we can preserve Syncro-controlled
     // fields (billingTier) regardless of what the form submitted.
     const existing = await db
@@ -587,6 +597,7 @@ export const createService = authedAction
   .action(async ({ parsedInput, ctx }) => {
     await authorize("create", "service");
     await assertClientInOrg(parsedInput.clientId, ctx.organization.id);
+    await assertOwned(vendors, parsedInput.vendorId, ctx.organization.id, "Vendor");
     const canWriteFinance = can("update", "finance", {
       role: ctx.membership.role,
       financeAccess: ctx.membership.financeAccess,
@@ -641,6 +652,7 @@ export const updateService = authedAction
   .schema(serviceSchema.extend({ serviceId: z.string().uuid() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "service");
+    await assertOwned(vendors, parsedInput.vendorId, ctx.organization.id, "Vendor");
     const canWriteFinance = can("update", "finance", {
       role: ctx.membership.role,
       financeAccess: ctx.membership.financeAccess,
@@ -753,6 +765,9 @@ export const createLicense = authedAction
   .schema(licenseSchema)
   .action(async ({ parsedInput, ctx }) => {
     await authorize("create", "license");
+    await assertOwned(vendors, parsedInput.vendorId, ctx.organization.id, "Vendor");
+    await assertOwned(clientLocations, parsedInput.locationId, ctx.organization.id, "Location");
+    await assertOwned(contracts, parsedInput.contractId, ctx.organization.id, "Contract");
     if (parsedInput.clientId) {
       await assertClientInOrg(parsedInput.clientId, ctx.organization.id);
     }
@@ -798,6 +813,10 @@ export const updateLicense = authedAction
   .schema(licenseSchema.extend({ licenseId: z.string().uuid() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "license");
+    await assertOwned(vendors, parsedInput.vendorId, ctx.organization.id, "Vendor");
+    await assertOwned(clients, parsedInput.clientId, ctx.organization.id, "Client");
+    await assertOwned(clientLocations, parsedInput.locationId, ctx.organization.id, "Location");
+    await assertOwned(contracts, parsedInput.contractId, ctx.organization.id, "Contract");
     const canWriteFinance = can("update", "finance", {
       role: ctx.membership.role,
       financeAccess: ctx.membership.financeAccess,
@@ -883,6 +902,8 @@ export const createLicenseAssignment = authedAction
   .schema(licenseAssignmentSchema)
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "license");
+    await assertOwned(licenses, parsedInput.licenseId, ctx.organization.id, "License");
+    await assertOwned(clients, parsedInput.clientId, ctx.organization.id, "Client");
     const [created] = await db
       .insert(licenseAssignments)
       .values({

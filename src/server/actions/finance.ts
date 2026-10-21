@@ -6,9 +6,13 @@ import { z } from "zod";
 import { db } from "@/db";
 import {
   billables,
+  clientLocations,
   clients,
+  licenses,
+  services,
   vendorBillLines,
   vendorBills,
+  vendors,
 } from "@/db/schema";
 import { authedAction, authorize, PublicError } from "@/server/safe-action";
 import { generateMonthlyBillablesFromSnapshots } from "@/lib/billing/generate-from-snapshots";
@@ -48,6 +52,7 @@ export const createVendorBill = authedAction
   .schema(createBillSchema)
   .action(async ({ parsedInput, ctx }) => {
     await authorize("create", "bill");
+    await assertOwned(vendors, parsedInput.vendorId, ctx.organization.id, "Vendor");
     const [created] = await db
       .insert(vendorBills)
       .values({
@@ -75,6 +80,7 @@ export const updateVendorBill = authedAction
   .schema(createBillSchema.partial().extend({ billId: z.string().uuid() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "bill");
+    await assertOwned(vendors, parsedInput.vendorId, ctx.organization.id, "Vendor");
     const existing = await db.query.vendorBills.findFirst({
       where: and(
         eq(vendorBills.id, parsedInput.billId),
@@ -164,10 +170,18 @@ const lineSchema = z.object({
   notes: z.string().max(2000).optional().nullable(),
 });
 
+async function assertLineRefsOwned(input: z.infer<typeof lineSchema>, organizationId: string) {
+  await assertOwned(clients, input.clientId, organizationId, "Client");
+  await assertOwned(clientLocations, input.locationId, organizationId, "Location");
+  await assertOwned(licenses, input.matchedLicenseId, organizationId, "License");
+  await assertOwned(services, input.matchedServiceId, organizationId, "Service");
+}
+
 export const createBillLine = authedAction
   .schema(lineSchema)
   .action(async ({ parsedInput, ctx }) => {
     await authorize("create", "bill");
+    await assertLineRefsOwned(parsedInput, ctx.organization.id);
     const bill = await db.query.vendorBills.findFirst({
       where: and(
         eq(vendorBills.id, parsedInput.billId),
@@ -203,6 +217,7 @@ export const updateBillLine = authedAction
   .schema(lineSchema.extend({ lineId: z.string().uuid() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "bill");
+    await assertLineRefsOwned(parsedInput, ctx.organization.id);
     await db
       .update(vendorBillLines)
       .set({

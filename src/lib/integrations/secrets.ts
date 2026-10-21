@@ -24,3 +24,33 @@ export function mergeSecrets(incoming: Record<string, unknown>, existing: Record
   }
   return out;
 }
+
+/**
+ * URL-ish config fields (base URLs, hosts, endpoints) the server will call:
+ * https only, a real public hostname — no IP literals, localhost or
+ * internal names — so a connector can't be aimed at internal services.
+ * Returns an error message, or null when every URL field is acceptable.
+ */
+export function unsafeUrlField(config: Record<string, unknown>): string | null {
+  for (const [k, v] of Object.entries(config)) {
+    if (!/url|host|endpoint/i.test(k) || typeof v !== "string" || !v.trim()) continue;
+    let u: URL;
+    try {
+      u = new URL(/^[a-z]+:\/\//i.test(v.trim()) ? v.trim() : `https://${v.trim()}`);
+    } catch {
+      return `${k} isn't a valid URL`;
+    }
+    const host = u.hostname.toLowerCase();
+    if (u.protocol !== "https:") return `${k} must use https`;
+    if (
+      /^[\d.]+$/.test(host) ||
+      host.includes(":") ||
+      host === "localhost" ||
+      !host.includes(".") ||
+      /\.(local|internal|localhost|lan|home|corp)$/.test(host)
+    ) {
+      return `${k} must be a public hostname`;
+    }
+  }
+  return null;
+}

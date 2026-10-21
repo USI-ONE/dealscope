@@ -12,6 +12,7 @@ import {
   type SuggestedQuestion,
 } from "@/lib/ai/anthropic";
 import { guestAction, authorize, PublicError } from "@/server/safe-action";
+import { aiGuard } from "@/lib/security/ai-guard";
 
 /* ============================================================================
  * Shared output schemas — used as JSON Schema constraints on Claude.
@@ -152,6 +153,7 @@ export const extractAnswersFromNotes = guestAction
   .schema(extractSchema)
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "diligence");
+    await aiGuard(ctx);
 
     const { context, questions } = await loadEngagementContext(
       parsedInput.engagementId,
@@ -248,6 +250,7 @@ export const suggestNextQuestions = guestAction
   .schema(suggestSchema)
   .action(async ({ parsedInput, ctx }) => {
     await authorize("read", "diligence");
+    await aiGuard(ctx);
 
     const { context, questions } = await loadEngagementContext(
       parsedInput.engagementId,
@@ -333,6 +336,7 @@ export const generateBriefingDraft = guestAction
   .schema(briefingSchema)
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "diligence");
+    await aiGuard(ctx);
 
     const { context, questions } = await loadEngagementContext(
       parsedInput.engagementId,

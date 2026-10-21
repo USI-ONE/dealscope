@@ -41,6 +41,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { safeMarkdownComponents } from "@/components/ui/safe-markdown";
 import { Textarea } from "@/components/ui/textarea";
 
 export type RunbookPage = {
@@ -65,12 +66,7 @@ const KIND_LABEL: Record<RunbookPage["kind"], string> = {
   note: "Notes",
 };
 
-const KIND_ORDER: RunbookPage["kind"][] = [
-  "overview",
-  "location",
-  "guide",
-  "note",
-];
+const KIND_ORDER: RunbookPage["kind"][] = ["overview", "location", "guide", "note"];
 
 const KIND_ICON: Record<RunbookPage["kind"], React.ComponentType<{ className?: string }>> = {
   overview: BookOpen,
@@ -95,13 +91,8 @@ export function ClientRunbookPagesCard({
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [pending, start] = useTransition();
-  const overview = useMemo(
-    () => pages.find((p) => p.kind === "overview") ?? null,
-    [pages],
-  );
-  const [selectedId, setSelectedId] = useState<string | null>(
-    overview?.id ?? pages[0]?.id ?? null,
-  );
+  const overview = useMemo(() => pages.find((p) => p.kind === "overview") ?? null, [pages]);
+  const [selectedId, setSelectedId] = useState<string | null>(overview?.id ?? pages[0]?.id ?? null);
   const selected = useMemo(
     () => pages.find((p) => p.id === selectedId) ?? null,
     [pages, selectedId],
@@ -115,8 +106,7 @@ export function ClientRunbookPagesCard({
       arr.push(p);
       m.set(p.kind, arr);
     }
-    for (const arr of m.values())
-      arr.sort((a, b) => a.title.localeCompare(b.title));
+    for (const arr of m.values()) arr.sort((a, b) => a.title.localeCompare(b.title));
     return m;
   }, [pages]);
 
@@ -228,9 +218,7 @@ export function ClientRunbookPagesCard({
                         <li
                           key={p.id}
                           className={`group flex items-center gap-0.5 rounded ${
-                            selectedId === p.id
-                              ? "bg-primary/10"
-                              : "hover:bg-muted"
+                            selectedId === p.id ? "bg-primary/10" : "hover:bg-muted"
                           }`}
                         >
                           <button
@@ -330,18 +318,17 @@ export function ClientRunbookPagesCard({
                       )}
                     </div>
                   </header>
-                  <div className="prose prose-sm max-w-none dark:prose-invert prose-table:text-xs prose-table:my-2 prose-th:px-2 prose-th:py-1 prose-td:px-2 prose-td:py-1 prose-pre:text-xs prose-headings:font-semibold prose-h1:text-lg prose-h2:text-base prose-h3:text-sm">
+                  <div className="prose prose-sm dark:prose-invert prose-table:text-xs prose-table:my-2 prose-th:px-2 prose-th:py-1 prose-td:px-2 prose-td:py-1 prose-pre:text-xs prose-headings:font-semibold prose-h1:text-lg prose-h2:text-base prose-h3:text-sm max-w-none">
                     {selected.bodyMd.trim().length > 0 ? (
                       <ReactMarkdown
                         remarkPlugins={[remarkGfm]}
                         rehypePlugins={[rehypeSanitize]}
+                        components={safeMarkdownComponents}
                       >
                         {selected.bodyMd}
                       </ReactMarkdown>
                     ) : (
-                      <p className="italic text-muted-foreground">
-                        This page has no content yet.
-                      </p>
+                      <p className="italic text-muted-foreground">This page has no content yet.</p>
                     )}
                   </div>
                 </article>
@@ -385,12 +372,8 @@ function RunbookPageForm({
   const [pending, start] = useTransition();
   const [title, setTitle] = useState(initial?.title ?? "");
   const [kind, setKind] = useState<RunbookPage["kind"]>(initial?.kind ?? "note");
-  const [parentPageId, setParentPageId] = useState<string>(
-    initial?.parentPageId ?? "",
-  );
-  const [locationId, setLocationId] = useState<string>(
-    initial?.locationId ?? "",
-  );
+  const [parentPageId, setParentPageId] = useState<string>(initial?.parentPageId ?? "");
+  const [locationId, setLocationId] = useState<string>(initial?.locationId ?? "");
   const [bodyMd, setBodyMd] = useState(initial?.bodyMd ?? "");
 
   // Don't let a page parent itself — exclude it from the parent options.

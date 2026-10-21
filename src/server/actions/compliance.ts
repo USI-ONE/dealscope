@@ -22,6 +22,7 @@ import {
   standardControls,
   standards,
 } from "@/db/schema";
+import { AuthError, requireContext } from "@/lib/auth-helpers";
 import { authedAction, authorize, guestAction, PublicError } from "@/server/safe-action";
 import {
   findStarterPack,
@@ -560,6 +561,8 @@ export async function loadStandardWithControls(
   standardId: string,
   organizationId: string,
 ) {
+  const ctx = await requireContext();
+  if (organizationId !== ctx.organization.id) throw new AuthError("FORBIDDEN", "Forbidden");
   const std = await db.query.standards.findFirst({
     where: and(
       eq(standards.id, standardId),
@@ -579,6 +582,8 @@ export async function loadAssessmentMap(
   clientId: string,
   organizationId: string,
 ) {
+  const ctx = await requireContext();
+  if (organizationId !== ctx.organization.id) throw new AuthError("FORBIDDEN", "Forbidden");
   const rows = await db
     .select()
     .from(clientControlAssessments)
@@ -597,6 +602,8 @@ export async function loadEngagementApplicableStandards(
   engagementId: string,
   organizationId: string,
 ) {
+  const ctx = await requireContext({ allowExternal: true });
+  if (organizationId !== ctx.organization.id) throw new AuthError("FORBIDDEN", "Forbidden");
   const rows = await db
     .select({
       standard: standards,
@@ -629,6 +636,8 @@ export async function loadEngagementAssessmentMap(
   engagementId: string,
   organizationId: string,
 ) {
+  const ctx = await requireContext({ allowExternal: true });
+  if (organizationId !== ctx.organization.id) throw new AuthError("FORBIDDEN", "Forbidden");
   const rows = await db
     .select()
     .from(diligenceEngagementControlAssessments)

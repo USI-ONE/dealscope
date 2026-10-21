@@ -24,7 +24,9 @@ import {
   userProvisioningRequests,
   type ProvisioningTask,
 } from "@/db/schema";
+import { AuthError, requireContext } from "@/lib/auth-helpers";
 import { authedAction, authorize, PublicError } from "@/server/safe-action";
+import { assertOwned } from "@/server/ownership";
 import { seedTasksForKind } from "@/lib/user-provisioning/task-templates";
 
 async function loadRequest(id: string, organizationId: string) {
@@ -136,6 +138,7 @@ export const updateUserProvisioningRequest = authedAction
   .schema(baseSchema.partial().extend({ requestId: z.string().uuid() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "client");
+    await assertOwned(clients, parsedInput.clientId, ctx.organization.id, "Client");
     const r = await loadRequest(parsedInput.requestId, ctx.organization.id);
     if (r.status === "handed_off" || r.status === "cancelled") {
       throw new PublicError(
@@ -462,6 +465,8 @@ export const deleteUserProvisioningRequest = authedAction
  * READ HELPERS
  * ========================================================================== */
 export async function listUserProvisioningRequests(organizationId: string) {
+  const ctx = await requireContext();
+  if (organizationId !== ctx.organization.id) throw new AuthError("FORBIDDEN", "Forbidden");
   return db
     .select()
     .from(userProvisioningRequests)

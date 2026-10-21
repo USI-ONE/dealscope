@@ -27,6 +27,7 @@ import { db } from "@/db";
 import { clients } from "@/db/schema";
 import { canCtx, requireContext } from "@/lib/auth-helpers";
 import { AI_MODEL, getAnthropic, isAiConfigured } from "@/lib/ai/anthropic";
+import { aiLimited } from "@/lib/security/ai-guard";
 import { loadClientAiContext } from "@/lib/ai/client-context";
 
 export const runtime = "nodejs";
@@ -50,6 +51,8 @@ export async function POST(
 ) {
   const { id: clientId } = await ctxArg.params;
   const ctx = await requireContext();
+  const limited = await aiLimited(ctx);
+  if (limited) return limited;
   if (!canCtx("read", "client", ctx)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }

@@ -13,10 +13,11 @@ import {
   diligenceEngagements,
   diligenceFindings,
   diligenceSessions,
+  memberships,
 } from "@/db/schema";
 import { INDUSTRY_ENUM_VALUES } from "@/lib/diligence/industries";
 import { guestAction, authorize, PublicError } from "@/server/safe-action";
-import { assertOwned } from "@/server/ownership";
+import { assertOwned, assertOwnedMany } from "@/server/ownership";
 
 const engagementStatus = z.enum(["planning", "in_progress", "drafting", "delivered"]);
 const industrySchema = z.enum(INDUSTRY_ENUM_VALUES);
@@ -38,6 +39,8 @@ export const createEngagement = guestAction
   .schema(createEngagementSchema)
   .action(async ({ parsedInput, ctx }) => {
     await authorize("create", "diligence");
+    await assertOwned(clients, parsedInput.clientId, ctx.organization.id, "Client");
+    await assertOwned(memberships, parsedInput.leadInterviewerMembershipId, ctx.organization.id, "Member");
     const [created] = await db
       .insert(diligenceEngagements)
       .values({
@@ -63,6 +66,8 @@ export const updateEngagement = guestAction
   .schema(createEngagementSchema.partial().extend({ engagementId: z.string().uuid() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "diligence");
+    await assertOwned(clients, parsedInput.clientId, ctx.organization.id, "Client");
+    await assertOwned(memberships, parsedInput.leadInterviewerMembershipId, ctx.organization.id, "Member");
     const existing = await db.query.diligenceEngagements.findFirst({
       where: and(
         eq(diligenceEngagements.id, parsedInput.engagementId),
@@ -370,6 +375,23 @@ async function assertEngagementInOrg(engagementId: string, organizationId: strin
   return e;
 }
 
+async function assertSessionInEngagement(
+  sessionId: string | null | undefined,
+  engagementId: string,
+  organizationId: string,
+) {
+  if (!sessionId) return;
+  const s = await db.query.diligenceSessions.findFirst({
+    where: and(
+      eq(diligenceSessions.id, sessionId),
+      eq(diligenceSessions.engagementId, engagementId),
+      eq(diligenceSessions.organizationId, organizationId),
+    ),
+    columns: { id: true },
+  });
+  if (!s) throw new PublicError("Session not found");
+}
+
 const sessionSchema = z.object({
   engagementId: z.string().uuid(),
   title: z.string().min(1).max(200),
@@ -566,6 +588,7 @@ export const createArtifact = guestAction
   .action(async ({ parsedInput, ctx }) => {
     await authorize("create", "diligence");
     await assertEngagementInOrg(parsedInput.engagementId, ctx.organization.id);
+    await assertSessionInEngagement(parsedInput.sessionId, parsedInput.engagementId, ctx.organization.id);
 
     const [created] = await db
       .insert(diligenceArtifacts)
@@ -590,6 +613,15 @@ export const updateArtifact = guestAction
   .schema(artifactSchema.extend({ artifactId: z.string().uuid() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "diligence");
+    const existing = await db.query.diligenceArtifacts.findFirst({
+      where: and(
+        eq(diligenceArtifacts.id, parsedInput.artifactId),
+        eq(diligenceArtifacts.organizationId, ctx.organization.id),
+      ),
+      columns: { engagementId: true },
+    });
+    if (!existing) throw new PublicError("Artifact not found");
+    await assertSessionInEngagement(parsedInput.sessionId, existing.engagementId, ctx.organization.id);
     await db
       .update(diligenceArtifacts)
       .set({
@@ -680,6 +712,7 @@ export const createFinding = guestAction
   .action(async ({ parsedInput, ctx }) => {
     await authorize("create", "diligence");
     await assertEngagementInOrg(parsedInput.engagementId, ctx.organization.id);
+    await assertOwnedMany(diligenceArtifacts, parsedInput.relatedArtifactIds, ctx.organization.id, "Artifact");
 
     const refCode = await nextFindingRefCode(parsedInput.engagementId, parsedInput.severity);
 
@@ -712,10 +745,11 @@ export const updateFinding = guestAction
       ),
     });
     if (!existing) throw new PublicError("Finding not found");
+    await assertOwnedMany(diligenceArtifacts, parsedInput.relatedArtifactIds, ctx.organization.id, "Artifact");
 
     let refCode = existing.refCode;
     if (existing.severity !== parsedInput.severity) {
-      refCode = await nextFindingRefCode(parsedInput.engagementId, parsedInput.severity);
+      refCode = await nextFindingRefCode(existing.engagementId, parsedInput.severity);
     }
 
     await db
@@ -778,6 +812,7 @@ export const createCostLine = guestAction
   .action(async ({ parsedInput, ctx }) => {
     await authorize("create", "diligence");
     await assertEngagementInOrg(parsedInput.engagementId, ctx.organization.id);
+    await assertOwned(diligenceFindings, parsedInput.findingId, ctx.organization.id, "Finding");
 
     const [{ maxPos }] = await db
       .select({ maxPos: sql<number>`coalesce(max(${diligenceCostLines.position}), -1)` })
@@ -809,6 +844,7 @@ export const updateCostLine = guestAction
   .schema(costLineSchema.extend({ costLineId: z.string().uuid() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "diligence");
+    await assertOwned(diligenceFindings, parsedInput.findingId, ctx.organization.id, "Finding");
     await db
       .update(diligenceCostLines)
       .set({

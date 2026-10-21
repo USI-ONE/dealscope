@@ -23,9 +23,12 @@ import {
   changeRequests,
   clientEvents,
   clients,
+  memberships,
   standardChangeCatalog,
   type ChangeApprover,
 } from "@/db/schema";
+import { AuthError, requireContext } from "@/lib/auth-helpers";
+import { assertOwned, assertOwnedMany } from "@/server/ownership";
 import { authedAction, authorize, PublicError } from "@/server/safe-action";
 import {
   deriveRiskRating,
@@ -112,6 +115,12 @@ export const createChangeRequest = authedAction
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "client");
     await assertClient(parsedInput.clientId, ctx.organization.id);
+    await assertOwnedMany(
+      memberships,
+      [parsedInput.implementerMembershipId, parsedInput.changeManagerMembershipId],
+      ctx.organization.id,
+      "Member",
+    );
 
     // Standard changes must reference a catalog entry per policy §5.
     if (
@@ -197,6 +206,18 @@ export const updateChangeRequest = authedAction
   )
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "client");
+    await assertOwned(
+      standardChangeCatalog,
+      parsedInput.standardChangeCatalogId,
+      ctx.organization.id,
+      "Standard change catalog entry",
+    );
+    await assertOwnedMany(
+      memberships,
+      [parsedInput.implementerMembershipId, parsedInput.changeManagerMembershipId],
+      ctx.organization.id,
+      "Member",
+    );
     const cr = await loadCR(parsedInput.changeRequestId, ctx.organization.id);
     if (cr.status === "reviewed" || cr.status === "cancelled") {
       throw new PublicError(
@@ -611,6 +632,8 @@ export async function listChangeRequestsForClient(
   clientId: string,
   organizationId: string,
 ) {
+  const ctx = await requireContext();
+  if (organizationId !== ctx.organization.id) throw new AuthError("FORBIDDEN", "Forbidden");
   return db
     .select()
     .from(changeRequests)
@@ -627,6 +650,8 @@ export async function listEvidenceForChangeRequest(
   changeRequestId: string,
   organizationId: string,
 ) {
+  const ctx = await requireContext();
+  if (organizationId !== ctx.organization.id) throw new AuthError("FORBIDDEN", "Forbidden");
   return db
     .select()
     .from(changeRequestEvidence)

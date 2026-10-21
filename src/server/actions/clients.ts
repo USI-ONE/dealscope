@@ -8,7 +8,9 @@ import {
   clientContacts,
   clientLocations,
   clients,
+  memberships,
 } from "@/db/schema";
+import { assertOwned } from "@/server/ownership";
 import { authedAction, authorize, PublicError } from "@/server/safe-action";
 
 const slugify = (s: string) =>
@@ -38,6 +40,7 @@ export const createClient = authedAction
   .schema(createClientSchema)
   .action(async ({ parsedInput, ctx }) => {
     await authorize("create", "client");
+    await assertOwned(memberships, parsedInput.accountManagerMembershipId, ctx.organization.id, "Account manager");
     const slug = (parsedInput.slug?.trim() || slugify(parsedInput.name)) || "client";
 
     const existing = await db.query.clients.findFirst({
@@ -79,6 +82,7 @@ export const updateClient = authedAction
   .schema(updateClientSchema)
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "client");
+    await assertOwned(memberships, parsedInput.accountManagerMembershipId, ctx.organization.id, "Account manager");
     const existing = await db.query.clients.findFirst({
       where: and(
         eq(clients.id, parsedInput.clientId),

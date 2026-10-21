@@ -74,6 +74,8 @@ export async function POST(
 ) {
   const { id: billId } = await ctxArg.params;
   const ctx = await requireContext();
+  const limited = await aiLimited(ctx);
+  if (limited) return limited;
   if (!can("update", "bill", {
     role: ctx.membership.role,
     financeAccess: ctx.membership.financeAccess,
@@ -275,3 +277,4 @@ function extractJsonBlock(text: string): unknown {
 // Re-import Anthropic types for the content filter above without
 // triggering circular imports.
 import type Anthropic from "@anthropic-ai/sdk";
+import { aiLimited } from "@/lib/security/ai-guard";

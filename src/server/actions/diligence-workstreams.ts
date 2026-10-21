@@ -63,6 +63,7 @@ export const updateWorkstreamTask = guestAction
   )
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "diligence");
+    await assertOwned(memberships, parsedInput.ownerMembershipId, ctx.organization.id, "Member");
     const { taskId, engagementId, status, ...rest } = parsedInput;
     const completedAt =
       status === "done" ? new Date() : status !== undefined ? null : undefined;

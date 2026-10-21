@@ -9,6 +9,7 @@ import {
 import { requirePermission } from "@/lib/auth-helpers";
 import { getQuestionsForIndustry } from "@/lib/diligence/question-library";
 import { ALL_MA_QUESTIONS } from "@/lib/diligence/ma-question-library";
+import { aiLimited } from "@/lib/security/ai-guard";
 import { getAnthropic, AI_MODEL } from "@/lib/ai/anthropic";
 
 export const runtime = "nodejs";
@@ -19,6 +20,8 @@ export async function POST(
   { params }: { params: Promise<{ sid: string }> },
 ) {
   const ctx = await requirePermission("update", "diligence");
+  const limited = await aiLimited(ctx);
+  if (limited) return limited;
   const { sid } = await params;
 
   const session = await db.query.diligenceSessions.findFirst({

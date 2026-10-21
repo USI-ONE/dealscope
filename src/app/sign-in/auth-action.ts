@@ -4,9 +4,10 @@ import { AuthError } from "next-auth";
 import { redirect } from "next/navigation";
 import { signIn } from "@/auth";
 
+import { safeRedirect } from "@/lib/security/safe-redirect";
+
 export async function authenticate(formData: FormData): Promise<void> {
-  const callbackUrl =
-    (formData.get("callbackUrl") as string | null) || "/";
+  const callbackUrl = safeRedirect(formData.get("callbackUrl") as string | null);
   try {
     // NextAuth v5: on success, throws NEXT_REDIRECT (re-thrown below).
     // On failure, throws AuthError — caught here to produce a friendly URL.

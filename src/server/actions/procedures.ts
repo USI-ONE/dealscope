@@ -8,9 +8,11 @@ import {
   clientProcedureRuns,
   clientProcedures,
   clients,
+  memberships,
   type ProcedureStep,
   type ProcedureStepResult,
 } from "@/db/schema";
+import { assertOwned } from "@/server/ownership";
 import { authedAction, authorize, PublicError } from "@/server/safe-action";
 import { DEVICE_PROCEDURE_TEMPLATES } from "@/lib/procedures/device-templates";
 
@@ -85,6 +87,7 @@ export const createProcedure = authedAction
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "client");
     await assertClient(parsedInput.clientId, ctx.organization.id);
+    await assertOwned(memberships, parsedInput.ownerMembershipId, ctx.organization.id, "Owner");
     const [created] = await db
       .insert(clientProcedures)
       .values({
@@ -107,6 +110,7 @@ export const updateProcedure = authedAction
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "client");
     await loadProcedure(parsedInput.procedureId, ctx.organization.id);
+    await assertOwned(memberships, parsedInput.ownerMembershipId, ctx.organization.id, "Owner");
     await db
       .update(clientProcedures)
       .set({
