@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { desc, eq } from "drizzle-orm";
-import { AlertTriangle, ChevronLeft, ChevronRight, Loader2, Network } from "lucide-react";
+import { AlertTriangle, ChevronRight, Loader2, Network } from "lucide-react";
 import { db } from "@/db";
 import { discoveryTopologies } from "@/db/schema";
 import { canCtx, requireRole } from "@/lib/auth-helpers";
@@ -28,10 +28,7 @@ export default async function TopologyListPage({ params }: { params: Promise<{ i
   const canEdit = canCtx("update", "project", ctx);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5 pb-10">
-      <Link href={`/discovery/${project.id}`} className="inline-flex min-h-10 items-center gap-1 text-sm text-muted-foreground">
-        <ChevronLeft className="size-4" /> {project.name}
-      </Link>
+    <div className="space-y-5 pb-10">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Network topology</h1>
         <p className="text-sm text-muted-foreground">

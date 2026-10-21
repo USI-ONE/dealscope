@@ -5,9 +5,7 @@
  * English summary, business impact and phased roadmap are written by
  * Claude on request and cached (refresh when the walk changes).
  */
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
 import { requireRole } from "@/lib/auth-helpers";
 import { getProject } from "@/lib/discovery/load";
 import { loadSiteAssessment } from "@/lib/discovery/assessment-store";
@@ -47,7 +45,7 @@ export default async function SiteAssessmentPage({ params }: { params: Promise<{
   const ctx = await requireRole("member");
   const project = await getProject(id, ctx.organization.id);
   if (!project) notFound();
-  const { data, assessment: a, narrative } = await loadSiteAssessment(project);
+  const { data, assessment: a, narrative, tasks } = await loadSiteAssessment(project);
   const n = narrative?.content;
   const impacts = new Map(n?.area_impacts.map((i) => [i.area, i.impact]));
   const areaTitle = new Map(a.areas.map((x) => [x.key as string, x.title]));
@@ -63,13 +61,16 @@ export default async function SiteAssessmentPage({ params }: { params: Promise<{
   }).slice(0, 6);
 
   const aiReady = isAiConfigured();
+  const completed = tasks
+    .filter((t) => t.status === "done")
+    .sort((x, y) => (y.completedAt?.getTime() ?? 0) - (x.completedAt?.getTime() ?? 0));
+  const afterPhoto = new Map<string, string>();
+  for (const p of data.photoRows)
+    if (p.questionKey?.startsWith("task.") && !afterPhoto.has(p.questionKey.slice(5))) afterPhoto.set(p.questionKey.slice(5), p.id);
 
   return (
     <div className="mx-auto max-w-4xl space-y-8 pb-16 print:max-w-none print:space-y-6 print:text-[11px]">
-      <div className="flex flex-wrap items-center justify-between gap-2 print:hidden">
-        <Link href={`/discovery/${project.id}`} className="inline-flex min-h-10 items-center gap-1 text-sm text-muted-foreground">
-          <ChevronLeft className="size-4" /> {project.name}
-        </Link>
+      <div className="flex flex-wrap items-center justify-end gap-2 print:hidden">
         <div className="flex flex-wrap gap-2">
           {aiReady && (
             <GenerateNarrativeButton
@@ -99,6 +100,14 @@ export default async function SiteAssessmentPage({ params }: { params: Promise<{
             Overall
             <br />
             <span className="text-2xl font-bold text-foreground tabular-nums">{a.score}</span>/100
+            {a.resolvedCount > 0 && (
+              <>
+                <br />
+                <span className="text-xs">
+                  was {a.baseGrade} ({a.baseScore}) as walked
+                </span>
+              </>
+            )}
           </span>
         </div>
       </header>
@@ -145,9 +154,16 @@ export default async function SiteAssessmentPage({ params }: { params: Promise<{
               {impacts.get(x.key) && <p className="mt-2.5 text-sm font-medium">{impacts.get(x.key)}</p>}
               {x.findings.length ? (
                 <ul className="mt-2 list-disc space-y-0.5 pl-5 text-sm text-muted-foreground">
-                  {x.findings.map((f) => (
-                    <li key={f.text}>{f.text}</li>
-                  ))}
+                  {x.findings.map((f) =>
+                    f.resolved ? (
+                      <li key={f.id} className="marker:text-emerald-600">
+                        <span className="line-through decoration-1">{f.text}</span>{" "}
+                        <span className="font-semibold text-emerald-700 no-underline dark:text-emerald-400">✓ Resolved</span>
+                      </li>
+                    ) : (
+                      <li key={f.id}>{f.text}</li>
+                    ),
+                  )}
                 </ul>
               ) : (
                 <p className="mt-2 text-sm text-emerald-700 dark:text-emerald-400">No issues found on the walk.</p>
@@ -212,6 +228,41 @@ export default async function SiteAssessmentPage({ params }: { params: Promise<{
           <ul className="list-disc space-y-1 pl-5 text-[15px]">
             {n.strengths.map((s) => (
               <li key={s}>{s}</li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {completed.length > 0 && (
+        <section className="space-y-3">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <h2 className="text-xl font-bold">Progress since the walk</h2>
+            <p className="text-sm text-muted-foreground">
+              {completed.length} of {tasks.length} remediation items complete
+            </p>
+          </div>
+          <ul className="divide-y divide-border/70">
+            {completed.map((t) => (
+              <li key={t.id} className="flex break-inside-avoid items-start gap-3 py-2.5">
+                <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-xs font-bold text-white">✓</span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium">{t.title}</p>
+                  {t.detail && <p className="text-sm text-muted-foreground">{t.detail}</p>}
+                  {t.completedAt && (
+                    <p className="text-xs text-muted-foreground">
+                      Completed {t.completedAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    </p>
+                  )}
+                </div>
+                {afterPhoto.get(t.id) && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={photoSrc(photoUrl(project.id, afterPhoto.get(t.id)!), "thumb")}
+                    alt="After"
+                    className="h-16 w-20 shrink-0 rounded-md border border-border object-cover"
+                  />
+                )}
+              </li>
             ))}
           </ul>
         </section>

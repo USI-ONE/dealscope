@@ -23,6 +23,7 @@ import {
   discoveryPhotos,
   discoveryProjects,
   discoveryRecords,
+  discoveryTasks,
 } from "@/db/schema";
 import { getTemplate, templateIndex } from "@/lib/discovery/templates";
 import { photoPathPrefix } from "@/lib/discovery/paths";
@@ -428,7 +429,15 @@ export const registerDiscoveryPhoto = authedAction
     }
 
     const idx = templateIndex(getTemplate(p.templateKey));
-    if (parsedInput.questionKey && !idx.fields.has(parsedInput.questionKey)) {
+    // "task.<id>" = an after-photo on a remediation task.
+    const taskPhoto = parsedInput.questionKey?.match(/^task\.([0-9a-f-]{36})$/i);
+    if (taskPhoto) {
+      const t = await db.query.discoveryTasks.findFirst({
+        where: and(eq(discoveryTasks.id, taskPhoto[1]), eq(discoveryTasks.projectId, p.id)),
+        columns: { id: true },
+      });
+      if (!t) throw new PublicError("Task not found");
+    } else if (parsedInput.questionKey && !idx.fields.has(parsedInput.questionKey)) {
       throw new PublicError("Unknown question");
     }
     if (parsedInput.recordId) {

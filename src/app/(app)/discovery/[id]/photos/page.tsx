@@ -1,6 +1,4 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
 import { requireRole } from "@/lib/auth-helpers";
 import { getProject, loadProjectData } from "@/lib/discovery/load";
 import { photoMode, recordTitle, sectionFields, templateIndex } from "@/lib/discovery/templates";
@@ -66,11 +64,8 @@ export default async function DiscoveryPhotosPage({ params }: { params: Promise<
   ]);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 pb-10">
-      <Link href={`/discovery/${project.id}`} className="inline-flex min-h-10 items-center gap-1 text-sm text-muted-foreground">
-        <ChevronLeft className="size-4" /> {project.name}
-      </Link>
-      <h1 className="text-2xl font-semibold tracking-tight">Photos</h1>
+    <div className="space-y-4 pb-10">
+      <h2 className="text-xl font-semibold">Photos</h2>
       <PhotoHub photos={photos} shotGroups={shotGroups} sectionTitles={sectionTitles} />
     </div>
   );

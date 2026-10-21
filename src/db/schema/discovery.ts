@@ -371,3 +371,83 @@ export const discoveryReports = pgTable(
     keyIdx: uniqueIndex("discovery_reports_key_idx").on(t.organizationId, t.kind, t.reportKey),
   }),
 );
+
+/**
+ * Remediation work for a walk. Generated from the assessment findings,
+ * flagged inventory and planned drops (`sourceRef` keeps that idempotent),
+ * or added by hand. Closing a finding-sourced task resolves that finding
+ * in the client assessment, so the grade improves as the crew works.
+ */
+export const discoveryTasks = pgTable(
+  "discovery_tasks",
+  {
+    id: id(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => discoveryProjects.id, { onDelete: "cascade" }),
+    /** finding | item | drop | manual */
+    source: text("source").notNull().default("manual"),
+    /** e.g. "finding:network.firewall", "item:<recordId>", "drop:drop_ap" */
+    sourceRef: text("source_ref"),
+    area: text("area"),
+    title: text("title").notNull(),
+    detail: text("detail"),
+    /** Blocker | High | Medium | Low */
+    priority: text("priority").notNull().default("Medium"),
+    /** open | in_progress | done | skipped */
+    status: text("status").notNull().default("open"),
+    notes: text("notes"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    completedByMembershipId: uuid("completed_by_membership_id").references(() => memberships.id, { onDelete: "set null" }),
+    createdByMembershipId: uuid("created_by_membership_id").references(() => memberships.id, { onDelete: "set null" }),
+    ...timestamps,
+  },
+  (t) => ({
+    projectIdx: index("discovery_tasks_project_idx").on(t.projectId),
+  }),
+);
+export type DiscoveryTask = typeof discoveryTasks.$inferSelect;
+
+/**
+ * A no-login form sent to someone at the client (branch manager etc.)
+ * with the walk's open questions. Answers write straight into
+ * discovery_answers; `responses` keeps what was submitted, for the record.
+ */
+export const discoveryInfoRequests = pgTable(
+  "discovery_info_requests",
+  {
+    id: id(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => discoveryProjects.id, { onDelete: "cascade" }),
+    token: text("token").notNull(),
+    recipientName: text("recipient_name"),
+    recipientEmail: text("recipient_email"),
+    message: text("message"),
+    questionKeys: jsonb("question_keys").$type<string[]>().notNull().default([]),
+    responses: jsonb("responses")
+      .$type<Record<string, { v: string | string[] | Record<string, string> | null; unknown?: boolean; note?: string }>>()
+      .notNull()
+      .default({}),
+    /** open | submitted | closed */
+    status: text("status").notNull().default("open"),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    firstViewedAt: timestamp("first_viewed_at", { withTimezone: true }),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdByMembershipId: uuid("created_by_membership_id").references(() => memberships.id, { onDelete: "set null" }),
+    ...timestamps,
+  },
+  (t) => ({
+    tokenIdx: uniqueIndex("discovery_info_requests_token_idx").on(t.token),
+    projectIdx: index("discovery_info_requests_project_idx").on(t.projectId),
+  }),
+);
+export type DiscoveryInfoRequest = typeof discoveryInfoRequests.$inferSelect;

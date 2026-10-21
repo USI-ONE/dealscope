@@ -1,7 +1,5 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { asc, eq } from "drizzle-orm";
-import { ChevronLeft } from "lucide-react";
 import { db } from "@/db";
 import { clients, discoveryTopologies, DISCOVERY_STATUS_LABEL } from "@/db/schema";
 import { TopologySvg } from "@/components/discovery/topology-svg";
@@ -53,10 +51,7 @@ export default async function DiscoveryReportPage({ params }: { params: Promise<
 
   return (
     <div className="mx-auto max-w-4xl space-y-8 pb-16 print:max-w-none print:space-y-6 print:text-[11px]">
-      <div className="flex items-center justify-between print:hidden">
-        <Link href={`/discovery/${project.id}`} className="inline-flex min-h-10 items-center gap-1 text-sm text-muted-foreground">
-          <ChevronLeft className="size-4" /> {project.name}
-        </Link>
+      <div className="flex items-center justify-end print:hidden">
         <PrintButton />
       </div>
 

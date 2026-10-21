@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, ChevronRight, CircleHelp } from "lucide-react";
+import { ChevronRight, CircleHelp } from "lucide-react";
 import { requireRole } from "@/lib/auth-helpers";
 import { getProject, loadProjectData } from "@/lib/discovery/load";
 import { sectionFields } from "@/lib/discovery/templates";
@@ -28,12 +28,9 @@ export default async function DiscoveryFollowUpsPage({ params }: { params: Promi
   const count = groups.reduce((n, g) => n + g.items.length, 0);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
-      <Link href={`/discovery/${project.id}`} className="inline-flex min-h-10 items-center gap-1 text-sm text-muted-foreground">
-        <ChevronLeft className="size-4" /> {project.name}
-      </Link>
+    <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Follow-ups</h1>
+        <h2 className="text-xl font-semibold">Follow-ups</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           {count
             ? `${count} question${count === 1 ? "" : "s"} couldn’t be answered on site. Answering one clears it from this list.`

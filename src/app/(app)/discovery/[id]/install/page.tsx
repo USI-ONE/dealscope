@@ -7,10 +7,8 @@
  * looks like today, what still has to be confirmed before the trip, and
  * the photos that show where the work is.
  */
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
-import { ChevronLeft } from "lucide-react";
 import { db } from "@/db";
 import { clients, diligenceEngagements, DISCOVERY_STATUS_LABEL } from "@/db/schema";
 import type { DiscoveryAnswerValue } from "@/db/schema/discovery";
@@ -242,10 +240,7 @@ export default async function InstallBriefPage({ params }: { params: Promise<{ i
 
   return (
     <div className="mx-auto max-w-4xl space-y-7 pb-16 print:max-w-none print:space-y-5 print:text-[11px]">
-      <div className="flex items-center justify-between print:hidden">
-        <Link href={`/discovery/${project.id}`} className="inline-flex min-h-10 items-center gap-1 text-sm text-muted-foreground">
-          <ChevronLeft className="size-4" /> {project.name}
-        </Link>
+      <div className="flex items-center justify-end print:hidden">
         <PrintButton />
       </div>
 

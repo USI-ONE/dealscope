@@ -4,24 +4,26 @@ import { eq, sql } from "drizzle-orm";
 import {
   AlertTriangle,
   Camera,
-  ChevronLeft,
   ChartColumn,
+  Check,
   ChevronRight,
   CircleHelp,
-  FileSpreadsheet,
-  FileText,
   HardHat,
+  ListChecks,
   MapPin,
   Network,
   Pencil,
   Play,
+  Send,
 } from "lucide-react";
 import { db } from "@/db";
-import { clients, diligenceEngagements, discoveryTopologies } from "@/db/schema";
+import { clients, diligenceEngagements, discoveryInfoRequests, discoveryTopologies } from "@/db/schema";
 import { requireRole } from "@/lib/auth-helpers";
-import { getProject, loadProjectData, walkTitle } from "@/lib/discovery/load";
+import { getProject, loadProjectData } from "@/lib/discovery/load";
+import { assessSite, GRADE_STYLE } from "@/lib/discovery/assessment";
+import { loadTasks, resolvedFindings } from "@/lib/discovery/remediation";
 import { answerToText, recordTitle, sectionFields, templateIndex } from "@/lib/discovery/templates";
-import { DiscoveryStatusPill, ProgressRing } from "@/components/discovery/status-pill";
+import { ProgressRing } from "@/components/discovery/status-pill";
 import { SectionIcon } from "@/components/discovery/section-icon";
 import { ProjectSearch, type SearchEntry } from "@/components/discovery/project-search";
 import { StatusActions } from "@/components/discovery/status-actions";
@@ -36,7 +38,7 @@ export default async function DiscoveryHubPage({ params }: { params: Promise<{ i
   const project = await getProject(id, ctx.organization.id);
   if (!project) notFound();
 
-  const [data, client, engagement, [{ topologyCount }]] = await Promise.all([
+  const [data, client, engagement, [{ topologyCount }], tasks, requestRows] = await Promise.all([
     loadProjectData(project),
     project.clientId
       ? db.query.clients.findFirst({ where: eq(clients.id, project.clientId), columns: { id: true, name: true } })
@@ -51,7 +53,12 @@ export default async function DiscoveryHubPage({ params }: { params: Promise<{ i
       .select({ topologyCount: sql<number>`count(*)::int` })
       .from(discoveryTopologies)
       .where(eq(discoveryTopologies.projectId, project.id)),
+    loadTasks(project.id),
+    db.select({ status: discoveryInfoRequests.status }).from(discoveryInfoRequests).where(eq(discoveryInfoRequests.projectId, project.id)),
   ]);
+  const assessment = assessSite(project, data, resolvedFindings(tasks));
+  const tasksDone = tasks.filter((t) => t.status === "done" || t.status === "skipped").length;
+  const requests = { sent: requestRows.length, answered: requestRows.filter((r) => r.status === "submitted").length };
   const { template, progress, answers, recordRows, photoRows } = data;
   const idx = templateIndex(template);
 
@@ -96,109 +103,102 @@ export default async function DiscoveryHubPage({ params }: { params: Promise<{ i
     search.push({ title: p.caption, detail: "Photo caption", section: "Photos", href: `/discovery/${project.id}/photos` });
   }
 
-  const heading = walkTitle(project, data.answers);
   const mapsHref = project.siteAddress ? `https://maps.google.com/?q=${encodeURIComponent(project.siteAddress)}` : null;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5 pb-10">
-      <Link href="/discovery" className="inline-flex min-h-10 items-center gap-1 text-sm text-muted-foreground">
-        <ChevronLeft className="size-4" /> All walks
-      </Link>
+    <div className="space-y-5 pb-10">
 
-      <header className="space-y-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <DiscoveryStatusPill status={project.status} />
-          {project.scheduledDate && <span className="text-xs text-muted-foreground">Walk date {project.scheduledDate}</span>}
-        </div>
-        <h1 className="text-2xl font-semibold tracking-tight">{heading.title}</h1>
-        {heading.subtitle && <p className="-mt-1 text-lg font-medium text-primary">{heading.subtitle}</p>}
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-          {client && <span>{client.name}</span>}
-          {engagement && (
-            <Link href={`/diligence/${engagement.id}`} className="underline-offset-2 hover:underline">
-              Engagement: {engagement.targetCompanyName}
-            </Link>
-          )}
-          {mapsHref && (
-            <a href={mapsHref} target="_blank" rel="noreferrer" className="flex items-center gap-1 underline-offset-2 hover:underline">
-              <MapPin className="size-3.5" /> {project.siteAddress}
-            </a>
-          )}
-        </div>
-      </header>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+        {project.scheduledDate && <span>Walked {project.scheduledDate}</span>}
+        {client && <span>{client.name}</span>}
+        {engagement && (
+          <Link href={`/diligence/${engagement.id}`} className="underline-offset-2 hover:underline">
+            Engagement: {engagement.targetCompanyName}
+          </Link>
+        )}
+        {mapsHref && (
+          <a href={mapsHref} target="_blank" rel="noreferrer" className="flex items-center gap-1 underline-offset-2 hover:underline">
+            <MapPin className="size-3.5" /> {project.siteAddress}
+          </a>
+        )}
+        <Link href={`/discovery/${project.id}/edit`} className="ml-auto flex items-center gap-1 underline-offset-2 hover:underline">
+          <Pencil className="size-3.5" /> Edit details
+        </Link>
+      </div>
 
-      {/* Progress */}
-      <div className="flex items-center gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
-        <ProgressRing pct={progress.pct} size={64} stroke={6} />
-        <div className="min-w-0 flex-1 space-y-2">
-          <p className="text-[15px] font-semibold">
-            {progress.done} of {progress.total} items captured
-          </p>
-          <div>
-            <div className="mb-1 flex justify-between text-xs text-muted-foreground">
-              <span>Required photos</span>
-              <span>
-                {progress.requiredPhotosDone}/{progress.requiredPhotos}
-              </span>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full bg-amber-500"
-                style={{ width: `${progress.requiredPhotos ? (progress.requiredPhotosDone / progress.requiredPhotos) * 100 : 0}%` }}
-              />
-            </div>
+      {/* Workflow: walk -> confirm -> assess -> remediate */}
+      <ol className="grid gap-3 sm:grid-cols-2">
+        <Step n={1} title="Walk the site" done={!nextOpen}>
+          <div className="flex items-center gap-3">
+            <ProgressRing pct={progress.pct} size={52} stroke={5} />
+            <p className="text-sm text-muted-foreground">
+              {progress.done} of {progress.total} captured
+              <br />
+              {progress.requiredPhotosDone}/{progress.requiredPhotos} required photos
+            </p>
           </div>
+          <StepLink href={`/discovery/${project.id}/s/${nextOpen?.key ?? template.sections[0].key}`} primary={!!nextOpen}>
+            <Play className="size-4" /> {progress.done === 0 ? "Start the walk" : nextOpen ? "Continue walk" : "Review answers"}
+          </StepLink>
+        </Step>
+        <Step n={2} title="Confirm the details" done={progress.followUps === 0}>
+          <p className="text-sm text-muted-foreground">
+            {progress.followUps
+              ? `${progress.followUps} question${progress.followUps === 1 ? "" : "s"} still open.`
+              : "Nothing left to confirm."}{" "}
+            {requests.sent
+              ? `${requests.sent} request${requests.sent === 1 ? "" : "s"} sent${requests.answered ? `, ${requests.answered} answered` : ""}.`
+              : ""}
+          </p>
           {progress.followUps > 0 && (
-            <Link
-              href={`/discovery/${project.id}/follow-ups`}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-full bg-amber-500/10 px-3 text-sm font-medium text-amber-700 dark:text-amber-400"
-            >
-              <CircleHelp className="size-4" /> {progress.followUps} follow-up{progress.followUps === 1 ? "" : "s"} open
-              <ChevronRight className="size-4" />
-            </Link>
+            <div className="mt-auto flex flex-wrap gap-2">
+              <StepLink href={`/discovery/${project.id}/requests`} primary={!requests.sent && !nextOpen}>
+                <Send className="size-4" /> Ask the client
+              </StepLink>
+              <StepLink href={`/discovery/${project.id}/follow-ups`}>
+                <CircleHelp className="size-4" /> View follow-ups
+              </StepLink>
+            </div>
           )}
-        </div>
-      </div>
-
-      {/* Primary actions */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <Link
-          href={`/discovery/${project.id}/s/${nextOpen?.key ?? template.sections[0].key}`}
-          className="col-span-2 flex h-14 items-center justify-center gap-2 rounded-2xl bg-primary text-[15px] font-semibold text-primary-foreground active:scale-[0.98] sm:col-span-1"
-        >
-          <Play className="size-5" /> {progress.done === 0 ? "Start" : nextOpen ? "Continue" : "Review"}
-        </Link>
-        <Link
-          href={`/discovery/${project.id}/photos`}
-          className="flex h-14 items-center justify-center gap-2 rounded-2xl border border-border bg-card text-[15px] font-medium active:scale-[0.98]"
-        >
-          <Camera className="size-5" /> Photos <span className="text-muted-foreground">{photoRows.length}</span>
-        </Link>
-        <Link
-          href={`/discovery/${project.id}/report`}
-          className="flex h-14 items-center justify-center gap-2 rounded-2xl border border-border bg-card text-[15px] font-medium active:scale-[0.98]"
-        >
-          <FileText className="size-5" /> Report
-        </Link>
-        <a
-          href={`/discovery/${project.id}/export.xlsx`}
-          className="flex h-14 items-center justify-center gap-2 rounded-2xl border border-border bg-card text-[15px] font-medium active:scale-[0.98]"
-        >
-          <FileSpreadsheet className="size-5" /> Excel
-        </a>
-        <Link
-          href={`/discovery/${project.id}/assessment`}
-          className="col-span-2 flex h-14 items-center justify-center gap-2 rounded-2xl border border-violet-600/40 bg-violet-600/5 text-[15px] font-semibold text-violet-700 active:scale-[0.98] dark:text-violet-300"
-        >
-          <ChartColumn className="size-5" /> Client assessment
-        </Link>
-        <Link
-          href={`/discovery/${project.id}/install`}
-          className="col-span-2 flex h-14 items-center justify-center gap-2 rounded-2xl border border-emerald-600/40 bg-emerald-600/5 text-[15px] font-semibold text-emerald-700 active:scale-[0.98] dark:text-emerald-400"
-        >
-          <HardHat className="size-5" /> Install team brief
-        </Link>
-      </div>
+        </Step>
+        <Step n={3} title="Assess" done={false}>
+          <div className="flex items-center gap-3">
+            <span className={cn("flex size-11 items-center justify-center rounded-lg text-2xl font-black", GRADE_STYLE[assessment.grade])}>
+              {assessment.grade}
+            </span>
+            <p className="text-sm text-muted-foreground">
+              {assessment.resolvedCount
+                ? `Was ${assessment.baseGrade} (${assessment.baseScore}) as walked — now ${assessment.score}/100`
+                : `${assessment.score}/100 · ${assessment.findingCount} findings`}
+            </p>
+          </div>
+          <div className="mt-auto flex flex-wrap gap-2">
+            <StepLink href={`/discovery/${project.id}/assessment`}>
+              <ChartColumn className="size-4" /> Client assessment
+            </StepLink>
+            <StepLink href={`/discovery/${project.id}/install`}>
+              <HardHat className="size-4" /> Install brief
+            </StepLink>
+          </div>
+        </Step>
+        <Step n={4} title="Remediate" done={tasks.length > 0 && tasksDone === tasks.length}>
+          {tasks.length ? (
+            <div className="space-y-1.5">
+              <p className="text-sm text-muted-foreground">
+                {tasksDone} of {tasks.length} tasks done
+              </p>
+              <div className="h-2 overflow-hidden rounded-full bg-muted">
+                <div className="h-full rounded-full bg-emerald-500" style={{ width: `${(tasksDone / tasks.length) * 100}%` }} />
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Turn the findings into a task list the crew works on site.</p>
+          )}
+          <StepLink href={`/discovery/${project.id}/remediation`} primary={!nextOpen && tasksDone < tasks.length}>
+            <ListChecks className="size-4" /> {tasks.length ? "Open remediation" : "Plan remediation"}
+          </StepLink>
+        </Step>
+      </ol>
 
       <Link
         href={`/discovery/${project.id}/topology`}
@@ -314,5 +314,38 @@ export default async function DiscoveryHubPage({ params }: { params: Promise<{ i
         </Link>
       </div>
     </div>
+  );
+}
+
+function Step({ n, title, done, children }: { n: number; title: string; done: boolean; children: React.ReactNode }) {
+  return (
+    <li className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
+      <div className="flex items-center gap-2.5">
+        <span
+          className={cn(
+            "flex size-7 shrink-0 items-center justify-center rounded-full text-sm font-bold",
+            done ? "bg-emerald-600 text-white" : "bg-foreground text-background",
+          )}
+        >
+          {done ? <Check className="size-4" /> : n}
+        </span>
+        <p className="text-[15px] font-semibold">{title}</p>
+      </div>
+      {children}
+    </li>
+  );
+}
+
+function StepLink({ href, primary, children }: { href: string; primary?: boolean; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "mt-auto inline-flex h-10 w-fit items-center gap-1.5 rounded-full px-4 text-sm font-semibold active:scale-[0.98]",
+        primary ? "bg-primary text-primary-foreground" : "border border-border bg-background",
+      )}
+    >
+      {children}
+    </Link>
   );
 }

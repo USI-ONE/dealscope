@@ -11,12 +11,13 @@ import { discoveryProjects, discoveryReports, type DiscoveryProject } from "@/db
 import { assessSite, baseCustomer, type SiteAssessment } from "./assessment";
 import type { PortfolioNarrative, SiteNarrative } from "./assessment-ai";
 import { loadProjectData } from "./load";
+import { loadTasks, resolvedFindings } from "./remediation";
 
 export type Cached<T> = { content: T; stale: boolean; updatedAt: Date } | null;
 
 export async function loadSiteAssessment(project: DiscoveryProject) {
-  const data = await loadProjectData(project);
-  const assessment = assessSite(project, data);
+  const [data, tasks] = await Promise.all([loadProjectData(project), loadTasks(project.id)]);
+  const assessment = assessSite(project, data, resolvedFindings(tasks));
   const row = await db.query.discoveryReports.findFirst({
     where: and(
       eq(discoveryReports.organizationId, project.organizationId),
@@ -27,7 +28,7 @@ export async function loadSiteAssessment(project: DiscoveryProject) {
   const narrative: Cached<SiteNarrative> = row
     ? { content: row.content as SiteNarrative, stale: row.sourceHash !== assessment.sourceHash, updatedAt: row.updatedAt }
     : null;
-  return { data, assessment, narrative };
+  return { data, assessment, narrative, tasks };
 }
 
 export function portfolioKey(projectIds: string[]) {

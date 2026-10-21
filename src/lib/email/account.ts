@@ -36,7 +36,7 @@ export async function issuePasswordToken(email: string, ttlMs: number) {
   return { link: `${appBaseUrl()}/reset-password/${token}`, expires };
 }
 
-function escapeHtml(s: string): string {
+export function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -45,7 +45,7 @@ function escapeHtml(s: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function fmt(d: Date) {
+export function fmt(d: Date) {
   return d.toLocaleString("en-US", {
     month: "short",
     day: "numeric",
@@ -57,7 +57,7 @@ function fmt(d: Date) {
   });
 }
 
-function layout(heading: string, body: string, cta: { label: string; href: string }, footer: string) {
+export function emailLayout(heading: string, body: string, cta: { label: string; href: string }, footer: string) {
   return `<!doctype html>
 <html>
   <body style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#f4f1ea;padding:32px;color:#1a1a1a;">
@@ -97,7 +97,7 @@ export async function sendWelcomeEmail(opts: {
     to: opts.to,
     toName: opts.name,
     subject: `${opts.inviterName} set up your DealScope account`,
-    htmlBody: layout(
+    htmlBody: emailLayout(
       "Welcome to DealScope",
       body,
       { label: "Set your password", href: opts.link },
@@ -113,7 +113,7 @@ export async function sendPasswordResetEmail(opts: { to: string; link: string; e
   await sendEmail({
     to: opts.to,
     subject: "Reset your DealScope password",
-    htmlBody: layout(
+    htmlBody: emailLayout(
       "Choose a new password",
       body,
       { label: "Set a new password", href: opts.link },
