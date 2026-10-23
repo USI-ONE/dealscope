@@ -10,7 +10,7 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth-helpers";
 import { getProject, walkSiteName } from "@/lib/discovery/load";
 import { loadSiteAssessment } from "@/lib/discovery/assessment-store";
-import { COST_LEGEND, COSTS, enforceCost, GRADE_STYLE, PHASES, type Cost, type Phase } from "@/lib/discovery/assessment";
+import { COST_LEGEND, COSTS, enforceCost, gradeBadge, PHASES, type Cost, type Phase } from "@/lib/discovery/assessment";
 import { recordTitle, templateIndex } from "@/lib/discovery/templates";
 import { photoUrl } from "@/lib/discovery/paths";
 import { photoSrc } from "@/lib/discovery/photo-variants";
@@ -119,14 +119,28 @@ export default async function SiteAssessmentPage({ params }: { params: Promise<{
           {a.walked && <p className="text-sm text-muted-foreground">Site walk {a.walked}</p>}
         </div>
         <div className="flex items-center gap-3">
-          <span className={cn("flex size-20 items-center justify-center rounded-2xl text-5xl font-black", GRADE_STYLE[a.grade])}>
-            {a.grade}
+          <span className={cn("flex size-20 items-center justify-center rounded-2xl text-5xl font-black", gradeBadge(a).className)}>
+            {gradeBadge(a).text}
           </span>
           <span className="text-sm leading-tight text-muted-foreground">
             Overall
             <br />
-            <span className="text-2xl font-bold text-foreground tabular-nums">{a.score}</span>/100
-            {a.resolvedCount > 0 && (
+            {a.assessed ? (
+              <>
+                <span className="text-2xl font-bold text-foreground tabular-nums">{a.score}</span>/100
+              </>
+            ) : (
+              <span className="font-semibold text-foreground">Not enough data</span>
+            )}
+            {a.partial && (
+              <>
+                <br />
+                <span className="text-xs">
+                  {a.assessedCount} of {a.areaCount} areas assessed
+                </span>
+              </>
+            )}
+            {a.assessed && a.resolvedCount > 0 && (
               <>
                 <br />
                 <span className="text-xs">
@@ -137,6 +151,26 @@ export default async function SiteAssessmentPage({ params }: { params: Promise<{
           </span>
         </div>
       </header>
+
+      {a.partial && (
+        <section className="space-y-1.5 rounded-xl border border-dashed border-amber-500/60 bg-amber-500/5 p-4 text-sm">
+          <p className="font-semibold">
+            {a.assessed
+              ? `Partial assessment — the overall grade covers ${a.assessedCount} of ${a.areaCount} areas.`
+              : `Not enough walk data for an overall grade — only ${a.assessedCount} of ${a.areaCount} areas could be assessed.`}
+          </p>
+          <p className="text-muted-foreground">Still to capture on the walk:</p>
+          <ul className="list-disc space-y-0.5 pl-5">
+            {a.areas
+              .filter((x) => !x.assessed)
+              .map((x) => (
+                <li key={x.key}>
+                  <span className="font-medium">{x.title}:</span> {x.missing.join(", ")}
+                </li>
+              ))}
+          </ul>
+        </section>
+      )}
 
       {/* Executive summary */}
       <section className="space-y-3">
@@ -169,8 +203,8 @@ export default async function SiteAssessmentPage({ params }: { params: Promise<{
           {a.areas.map((x) => (
             <div key={x.key} className="break-inside-avoid rounded-xl border border-border p-4">
               <div className="flex items-start gap-3">
-                <span className={cn("flex size-11 shrink-0 items-center justify-center rounded-lg text-2xl font-black", GRADE_STYLE[x.grade])}>
-                  {x.grade}
+                <span className={cn("flex size-11 shrink-0 items-center justify-center rounded-lg text-2xl font-black", gradeBadge(x).className)}>
+                  {gradeBadge(x).text}
                 </span>
                 <div className="min-w-0">
                   <p className="font-semibold">{x.title}</p>
@@ -178,6 +212,11 @@ export default async function SiteAssessmentPage({ params }: { params: Promise<{
                 </div>
               </div>
               {impacts.get(x.key) && <p className="mt-2.5 text-sm font-medium">{impacts.get(x.key)}</p>}
+              {!x.assessed && (
+                <p className="mt-2 text-sm text-amber-700 dark:text-amber-400">
+                  Not assessed — still to check: {x.missing.join(", ")}.
+                </p>
+              )}
               {x.findings.length ? (
                 <ul className="mt-2 list-disc space-y-0.5 pl-5 text-sm text-muted-foreground">
                   {x.findings.map((f) =>
@@ -191,9 +230,9 @@ export default async function SiteAssessmentPage({ params }: { params: Promise<{
                     ),
                   )}
                 </ul>
-              ) : (
+              ) : x.assessed ? (
                 <p className="mt-2 text-sm text-emerald-700 dark:text-emerald-400">No issues found on the walk.</p>
-              )}
+              ) : null}
             </div>
           ))}
         </div>

@@ -20,7 +20,7 @@ import { db } from "@/db";
 import { clients, diligenceEngagements, discoveryInfoRequests, discoveryTopologies } from "@/db/schema";
 import { requireRole } from "@/lib/auth-helpers";
 import { getProject, loadProjectData } from "@/lib/discovery/load";
-import { assessSite, GRADE_STYLE } from "@/lib/discovery/assessment";
+import { assessSite, gradeBadge } from "@/lib/discovery/assessment";
 import { loadTasks, resolvedFindings } from "@/lib/discovery/remediation";
 import { answerToText, recordTitle, sectionFields, templateIndex } from "@/lib/discovery/templates";
 import { ProgressRing } from "@/components/discovery/status-pill";
@@ -163,11 +163,15 @@ export default async function DiscoveryHubPage({ params }: { params: Promise<{ i
         </Step>
         <Step n={3} title="Assess" done={false}>
           <div className="flex items-center gap-3">
-            <span className={cn("flex size-11 items-center justify-center rounded-lg text-2xl font-black", GRADE_STYLE[assessment.grade])}>
-              {assessment.grade}
+            <span className={cn("flex size-11 items-center justify-center rounded-lg text-2xl font-black", gradeBadge(assessment).className)}>
+              {gradeBadge(assessment).text}
             </span>
             <p className="text-sm text-muted-foreground">
-              {assessment.resolvedCount
+              {!assessment.assessed
+                ? `Not enough data yet — ${assessment.assessedCount} of ${assessment.areaCount} areas assessed`
+                : assessment.partial
+                  ? `${assessment.score}/100 · partial (${assessment.assessedCount} of ${assessment.areaCount} areas)`
+                  : assessment.resolvedCount
                 ? `Was ${assessment.baseGrade} (${assessment.baseScore}) as walked — now ${assessment.score}/100`
                 : `${assessment.score}/100 · ${assessment.findingCount} findings`}
             </p>

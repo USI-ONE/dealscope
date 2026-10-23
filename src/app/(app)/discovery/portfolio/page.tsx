@@ -13,7 +13,7 @@ import { db } from "@/db";
 import { discoveryProjects, DISCOVERY_STATUS_LABEL } from "@/db/schema";
 import { requireRole } from "@/lib/auth-helpers";
 import { isAiConfigured } from "@/lib/ai/anthropic";
-import { AREAS, GRADE_STYLE, toGrade } from "@/lib/discovery/assessment";
+import { AREAS, GRADE_STYLE, gradeBadge, NOT_ASSESSED_STYLE, toGrade } from "@/lib/discovery/assessment";
 import { loadPortfolio } from "@/lib/discovery/assessment-store";
 import { PrintButton } from "@/components/discovery/print-button";
 import { GenerateNarrativeButton, PortfolioPicker } from "@/components/discovery/assessment-controls";
@@ -43,7 +43,9 @@ export default async function PortfolioPage({ searchParams }: { searchParams: Pr
   const n = narrative?.content;
   const areaTitle = new Map(AREAS.map((a) => [a.key as string, a.title]));
 
-  const avg = assessments.length ? Math.round(assessments.reduce((s, a) => s + a.score, 0) / assessments.length) : 0;
+  // Sites without enough walk data have no grade and stay out of the average.
+  const graded = assessments.filter((a) => a.assessed);
+  const avg = graded.length ? Math.round(graded.reduce((s, a) => s + a.score, 0) / graded.length) : 0;
   const totalRisks = assessments.reduce((s, a) => s + a.risks.length, 0);
   const highRisks = assessments.reduce((s, a) => s + a.risks.filter((r) => r.level === "Blocker" || r.level === "High").length, 0);
   const totalDrops = assessments.reduce((s, a) => s + a.drops, 0);
@@ -97,13 +99,32 @@ export default async function PortfolioPage({ searchParams }: { searchParams: Pr
               </p>
             </div>
             <div className="flex items-center gap-3">
-              <span className={cn("flex size-20 items-center justify-center rounded-2xl text-5xl font-black", GRADE_STYLE[toGrade(avg)])}>
-                {toGrade(avg)}
+              <span
+                className={cn(
+                  "flex size-20 items-center justify-center rounded-2xl text-5xl font-black",
+                  graded.length ? GRADE_STYLE[toGrade(avg)] : NOT_ASSESSED_STYLE,
+                )}
+              >
+                {graded.length ? toGrade(avg) : "—"}
               </span>
               <span className="text-sm leading-tight text-muted-foreground">
                 Portfolio average
                 <br />
-                <span className="text-2xl font-bold text-foreground tabular-nums">{avg}</span>/100
+                {graded.length ? (
+                  <>
+                    <span className="text-2xl font-bold text-foreground tabular-nums">{avg}</span>/100
+                  </>
+                ) : (
+                  <span className="font-semibold text-foreground">Not enough data</span>
+                )}
+                {graded.length < assessments.length && (
+                  <>
+                    <br />
+                    <span className="text-xs">
+                      {graded.length} of {assessments.length} sites graded
+                    </span>
+                  </>
+                )}
               </span>
             </div>
           </header>
@@ -154,20 +175,21 @@ export default async function PortfolioPage({ searchParams }: { searchParams: Pr
                         </Link>
                         <span className="block text-xs text-muted-foreground">
                           {s.risks.length} risks · {s.workItems.length} items
+                          {s.partial ? ` · ${s.assessedCount}/${s.areaCount} areas assessed` : ""}
                         </span>
                       </td>
                       <td className="px-1 py-1.5 text-center">
-                        <span className={cn("inline-flex size-9 items-center justify-center rounded-md text-lg font-black", GRADE_STYLE[s.grade])}>
-                          {s.grade}
+                        <span className={cn("inline-flex size-9 items-center justify-center rounded-md text-lg font-black", gradeBadge(s).className)}>
+                          {gradeBadge(s).text}
                         </span>
                       </td>
                       {s.areas.map((a) => (
                         <td key={a.key} className="px-1 py-1.5 text-center">
                           <span
-                            title={a.findings.map((f) => f.text).join("\n")}
-                            className={cn("inline-flex size-8 items-center justify-center rounded-md text-sm font-bold", GRADE_STYLE[a.grade])}
+                            title={a.assessed ? a.findings.map((f) => f.text).join("\n") : `Not assessed — missing: ${a.missing.join(", ")}`}
+                            className={cn("inline-flex size-8 items-center justify-center rounded-md text-sm font-bold", gradeBadge(a).className)}
                           >
-                            {a.grade}
+                            {gradeBadge(a).text}
                           </span>
                         </td>
                       ))}
@@ -267,8 +289,8 @@ export default async function PortfolioPage({ searchParams }: { searchParams: Pr
               {sites.map(({ assessment: s, narrative: sn }) => (
                 <li key={s.projectId}>
                   <Link href={`/discovery/${s.projectId}/assessment`} className="flex min-h-[56px] items-center gap-3 px-4 py-2.5 active:bg-accent">
-                    <span className={cn("flex size-9 items-center justify-center rounded-md text-lg font-black", GRADE_STYLE[s.grade])}>
-                      {s.grade}
+                    <span className={cn("flex size-9 items-center justify-center rounded-md text-lg font-black", gradeBadge(s).className)}>
+                      {gradeBadge(s).text}
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block font-medium">{s.site}</span>

@@ -12,7 +12,7 @@ import { db } from "@/db";
 import { memberships, users } from "@/db/schema";
 import type { ServerPhoto } from "@/components/discovery/project-context";
 import { requireRole } from "@/lib/auth-helpers";
-import { GRADE_STYLE } from "@/lib/discovery/assessment";
+import { NOT_ASSESSED_STYLE, GRADE_STYLE } from "@/lib/discovery/assessment";
 import { loadSiteAssessment } from "@/lib/discovery/assessment-store";
 import { getProject } from "@/lib/discovery/load";
 import { photoUrl } from "@/lib/discovery/paths";
@@ -97,9 +97,9 @@ export default async function RemediationPage({ params }: { params: Promise<{ id
           </p>
         </div>
         <div className="flex items-center gap-3 sm:justify-end">
-          <GradeChip label="As walked" grade={a.baseGrade} score={a.baseScore} />
+          <GradeChip label="As walked" grade={a.assessed ? a.baseGrade : null} score={a.baseScore} />
           <ArrowRight className="size-5 text-muted-foreground" />
-          <GradeChip label="Now" grade={a.grade} score={a.score} />
+          <GradeChip label="Now" grade={a.assessed ? a.grade : null} score={a.score} />
         </div>
       </section>
 
@@ -119,12 +119,15 @@ export default async function RemediationPage({ params }: { params: Promise<{ id
   );
 }
 
-function GradeChip({ label, grade, score }: { label: string; grade: keyof typeof GRADE_STYLE; score: number }) {
+function GradeChip({ label, grade, score }: { label: string; grade: keyof typeof GRADE_STYLE | null; score: number }) {
   return (
     <div className="flex flex-col items-center gap-1">
-      <span className={cn("flex size-12 items-center justify-center rounded-xl text-2xl font-black", GRADE_STYLE[grade])}>{grade}</span>
+      <span className={cn("flex size-12 items-center justify-center rounded-xl text-2xl font-black", grade ? GRADE_STYLE[grade] : NOT_ASSESSED_STYLE)}>
+        {grade ?? "—"}
+      </span>
       <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-        {label} · {score}
+        {label}
+        {grade ? ` · ${score}` : ""}
       </span>
     </div>
   );

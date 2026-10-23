@@ -5,6 +5,10 @@
  * Each area starts at 100 and loses points for findings read straight
  * from the walk answers and inventory; the findings are what the client
  * sees under each grade, and what the AI narrative is written from.
+ *
+ * Missing answers cost nothing, so an area is only graded when at least
+ * half of its evidence was captured; otherwise it is "not assessed" and
+ * left out of the overall grade instead of counting as a perfect 100.
  */
 import type { DiscoveryProject } from "@/db/schema";
 import type { ProjectData } from "./load";
@@ -37,8 +41,67 @@ export type AreaScore = {
   baseScore: number;
   baseGrade: Grade;
   findings: Finding[];
+  /** Enough evidence captured to grade this area. */
+  assessed: boolean;
+  /** Evidence still missing from the walk (labels). */
+  missing: string[];
 };
 export type Grade = "A" | "B" | "C" | "D" | "F";
+
+/**
+ * What each area's grade rests on. An item counts as captured when any of
+ * its questions has an answer (or is marked N/A), any of its inventory
+ * tables has rows, or — where skipping a section is itself the answer
+ * ("no alarm") — that section is marked N/A.
+ */
+type Evidence = { label: string; keys?: string[]; records?: string[]; naSection?: string };
+const EVIDENCE: Record<AreaKey, Evidence[]> = {
+  network: [
+    { label: "Firewall / router model", keys: ["firewall.fw_model"] },
+    { label: "Core switch", keys: ["firewall.core_model"] },
+    { label: "Internet carrier", keys: ["wan.p_carrier"] },
+    { label: "Cabling condition", keys: ["cabling.condition"] },
+    { label: "Cable category", keys: ["cabling.category"] },
+    { label: "Cable labeling", keys: ["cabling.label_scheme", "mdf.labeling"] },
+  ],
+  wifi: [
+    { label: "Wi-Fi coverage / staff feedback", keys: ["wireless.dead_zones"] },
+    { label: "Access point inventory", records: ["aps"] },
+  ],
+  power: [
+    { label: "Battery backup (UPS)", keys: ["mdf.ups"] },
+    { label: "Dedicated circuits", keys: ["mdf.circuits"] },
+    { label: "Surge protection", keys: ["environmental.surge"] },
+    { label: "Emergency lighting", keys: ["environmental.egress_lighting"] },
+    { label: "Generator", keys: ["environmental.generator", "mdf.generator"] },
+  ],
+  closet: [
+    { label: "Closet access / lock", keys: ["mdf.room_access", "mdf.door"] },
+    { label: "Cooling", keys: ["mdf.hvac"] },
+    { label: "Housekeeping", keys: ["mdf.housekeeping"] },
+    { label: "Combustibles", keys: ["mdf.combustibles"] },
+    { label: "Water / plumbing nearby", keys: ["mdf.overhead_water", "facility.wet"] },
+    { label: "Grounding", keys: ["mdf.tmgb"] },
+  ],
+  security: [
+    { label: "Cameras", records: ["cameras"], naSection: "cameras" },
+    { label: "Intrusion alarm", keys: ["alarms.panel", "alarms.monitoring_co"], naSection: "alarms" },
+    { label: "Door access", records: ["doors"], naSection: "access" },
+  ],
+  voice: [
+    { label: "Phone system", keys: ["voice.pbx"] },
+    { label: "Hosted vs on-prem", keys: ["voice.hosting"] },
+    { label: "Phone count", keys: ["voice.seats"] },
+  ],
+  compliance: [{ label: "Card payments / PCI", keys: ["compliance.pci"] }],
+};
+
+export const NOT_ASSESSED_STYLE = "bg-muted text-muted-foreground";
+
+/** Badge text + colour for an area or overall grade that may be ungraded. */
+export function gradeBadge(x: { assessed: boolean; grade: Grade }) {
+  return x.assessed ? { text: x.grade, className: GRADE_STYLE[x.grade] } : { text: "—", className: NOT_ASSESSED_STYLE };
+}
 
 export function toGrade(score: number): Grade {
   return score >= 90 ? "A" : score >= 80 ? "B" : score >= 70 ? "C" : score >= 60 ? "D" : "F";
@@ -83,6 +146,12 @@ export type SiteAssessment = {
   /** Overall score as walked, before remediation. */
   baseScore: number;
   baseGrade: Grade;
+  /** Most areas could be graded — otherwise there's no overall grade. */
+  assessed: boolean;
+  assessedCount: number;
+  areaCount: number;
+  /** Some areas were left out of the overall grade for lack of data. */
+  partial: boolean;
   resolvedCount: number;
   findingCount: number;
   risks: Array<{ level: string; risk: string; area: string }>;
@@ -120,6 +189,15 @@ export function assessSite(project: DiscoveryProject, data: ProjectData, resolve
     return Array.isArray(v) ? v.join(", ") : v == null ? "" : String(v);
   };
   const records = (t: string) => recordRows.filter((r) => r.tableKey === t);
+  const answered = (k: string) => {
+    const a = ans(k);
+    if (!a) return false;
+    if (a.notApplicable) return true;
+    const v = a.value?.v;
+    return !a.value?.followUp && v != null && (Array.isArray(v) ? v.length > 0 : typeof v === "object" || String(v).trim() !== "");
+  };
+  const captured = (e: Evidence) =>
+    !!e.keys?.some(answered) || !!e.records?.some((t) => records(t).length > 0) || (!!e.naSection && naSections.has(e.naSection));
 
   const areas: Record<AreaKey, Finding[]> = {
     network: [],
@@ -202,11 +280,14 @@ export function assessSite(project: DiscoveryProject, data: ProjectData, resolve
     const findings = areas[a.key].sort((x, y) => Number(x.resolved) - Number(y.resolved) || y.points - x.points);
     const baseScore = Math.max(0, 100 - findings.reduce((s, f) => s + f.points, 0));
     const score = Math.max(0, 100 - findings.filter((f) => !f.resolved).reduce((s, f) => s + f.points, 0));
-    return { ...a, score, grade: toGrade(score), baseScore, baseGrade: toGrade(baseScore), findings };
+    const missing = EVIDENCE[a.key].filter((e) => !captured(e)).map((e) => e.label);
+    const assessed = missing.length * 2 <= EVIDENCE[a.key].length;
+    return { ...a, score, grade: toGrade(score), baseScore, baseGrade: toGrade(baseScore), findings, assessed, missing };
   });
-  const avg = (xs: number[]) => Math.round(xs.reduce((s, x) => s + x, 0) / xs.length);
-  const score = avg(scored.map((a) => a.score));
-  const baseScore = avg(scored.map((a) => a.baseScore));
+  const graded = scored.filter((a) => a.assessed);
+  const avg = (xs: number[]) => (xs.length ? Math.round(xs.reduce((s, x) => s + x, 0) / xs.length) : 0);
+  const score = avg(graded.map((a) => a.score));
+  const baseScore = avg(graded.map((a) => a.baseScore));
   const allFindings = scored.flatMap((a) => a.findings);
 
   const risks = records("risks")
@@ -241,11 +322,15 @@ export function assessSite(project: DiscoveryProject, data: ProjectData, resolve
     `Internet: ${[value("wan.p_type"), said("wan.p_demarc")].filter(Boolean).join("; ") || "unknown"}. Router/firewall: ${said("firewall.fw_model") || "unknown"}. Switch: ${said("firewall.core_model") || "unknown"}`,
     `Phones: ${said("voice.pbx") || "unknown"}. Cameras: ${cams.map((c) => `${c.data.location ?? ""} ${c.data.notes ?? ""}`).join("; ") || (naSections.has("cameras") ? "none" : "unknown")}`,
     "",
-    "Area scores (0-100) and findings:",
-    ...scored.map(
-      (a) =>
-        `- ${a.title}: ${a.score} (${a.grade})${a.findings.length ? ` — ${a.findings.map((f) => (f.resolved ? `RESOLVED: ${f.text}` : f.text)).join("; ")}` : ""}`,
-    ),
+    graded.length * 2 > scored.length
+      ? `Area scores (0-100) and findings — overall grade covers ${graded.length} of ${scored.length} areas:`
+      : `Area scores (0-100) and findings — only ${graded.length} of ${scored.length} areas have enough data, so there is NO overall grade yet:`,
+    ...scored.map((a) => {
+      const found = a.findings.map((f) => (f.resolved ? `RESOLVED: ${f.text}` : f.text)).join("; ");
+      return a.assessed
+        ? `- ${a.title}: ${a.score} (${a.grade})${found ? ` — ${found}` : ""}`
+        : `- ${a.title}: NOT ASSESSED (missing: ${a.missing.join(", ")})${found ? ` — noted anyway: ${found}` : ""}`;
+    }),
     "",
     "Risks logged on the walk:",
     ...(risks.length ? risks.map((r) => `- [${r.level}] ${r.risk} (${r.area})`) : ["- none"]),
@@ -270,6 +355,10 @@ export function assessSite(project: DiscoveryProject, data: ProjectData, resolve
     grade: toGrade(score),
     baseScore,
     baseGrade: toGrade(baseScore),
+    assessed: graded.length * 2 > scored.length,
+    assessedCount: graded.length,
+    areaCount: scored.length,
+    partial: graded.length < scored.length,
     resolvedCount: allFindings.filter((f) => f.resolved).length,
     findingCount: allFindings.length,
     risks,

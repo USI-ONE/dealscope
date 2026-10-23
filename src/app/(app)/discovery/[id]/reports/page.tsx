@@ -7,7 +7,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChartColumn, ChevronRight, FileSpreadsheet, FileText, HardHat, Network } from "lucide-react";
 import { requireRole } from "@/lib/auth-helpers";
-import { GRADE_STYLE } from "@/lib/discovery/assessment";
+import { gradeBadge } from "@/lib/discovery/assessment";
 import { loadSiteAssessment } from "@/lib/discovery/assessment-store";
 import { getProject } from "@/lib/discovery/load";
 import { cn } from "@/lib/utils";
@@ -32,7 +32,7 @@ export default async function ReportsPage({ params }: { params: Promise<{ id: st
       who: "For the client",
       body: "Grades, plain-English findings, business impact and a phased roadmap with cost bands.",
       meta: narrative ? (narrative.stale ? "Summary out of date" : "Summary written") : "Summary not written yet",
-      grade: a.grade,
+      badge: gradeBadge(a),
     },
     {
       href: `${base}/install`,
@@ -85,9 +85,9 @@ export default async function ReportsPage({ params }: { params: Promise<{ id: st
               <span className="mt-0.5 block text-sm text-muted-foreground">{c.body}</span>
               {c.meta && <span className="mt-1.5 block text-xs font-medium text-muted-foreground">{c.meta}</span>}
             </span>
-            {c.grade ? (
-              <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-lg text-xl font-black", GRADE_STYLE[c.grade])}>
-                {c.grade}
+            {"badge" in c && c.badge ? (
+              <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-lg text-xl font-black", c.badge.className)}>
+                {c.badge.text}
               </span>
             ) : (
               <ChevronRight className="size-5 shrink-0 text-muted-foreground" />

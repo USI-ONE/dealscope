@@ -36,6 +36,8 @@ Phases:
 
 Only state facts that appear in the input. A high grade means no problems were recorded in that area, not that it was verified to work well — so never call something "solid", "working well" or "in good shape" unless the input says so. Strengths must come from facts in the input (e.g. "fiber internet", "16 working cameras").
 
+Areas marked NOT ASSESSED had too little walk data to grade and are left out of the overall grade. Never describe them as fine or problem-free — say they still need to be checked, and treat filling those gaps as an early roadmap item. If the overall grade is partial, say so plainly in the summary.
+
 Tone: confident, constructive, not alarmist. Credit what is working.`;
 
 const SITE_SCHEMA = {
