@@ -254,9 +254,10 @@ export function assessSite(project: DiscoveryProject, data: ProjectData, resolve
   if (aps.length <= 1) hit("wifi", "single", 15, "One Wi-Fi source covers the whole building", "Add access points so no area relies on a single one");
 
   // ── Power & resilience
-  if (/^none|no ups|not plugged|only the/.test(said("mdf.ups").trim()))
+  // On must-have power items the walk's N/A means "there isn't one".
+  if (ans("mdf.ups")?.notApplicable || /^none|no ups|not plugged|only the/.test(said("mdf.ups").trim()))
     hit("power", "ups", 35, "No battery backup on network equipment — any power blip drops internet, phones and card payments", "Install battery backup (UPS) for network and phone equipment");
-  if (/none dedicated|^none/.test(said("mdf.circuits").trim())) hit("power", "circuit", 10, "Network equipment shares general-purpose circuits", "Add a dedicated circuit for the network equipment");
+  if (ans("mdf.circuits")?.notApplicable || /none dedicated|^(none|no)\b/.test(said("mdf.circuits").trim())) hit("power", "circuit", 10, "Network equipment shares general-purpose circuits", "Add a dedicated circuit for the network equipment");
   if (value("environmental.surge") === "No") hit("power", "surge", 15, "No real surge protection — only old desk-level strips", "Replace old surge strips with proper surge protection");
   if (/poor|no emergency/.test(said("environmental.egress_lighting") + said("mdf.lighting")))
     hit("power", "lighting", 15, "No emergency lighting — the office goes dark in an outage", "Arrange emergency lighting with the facilities vendor");
