@@ -214,12 +214,32 @@ export function assessSite(project: DiscoveryProject, data: ProjectData, resolve
   };
 
   // ── Network & internet
-  if (/no dedicated firewall|isp[- ]provided|consumer/.test(said("firewall.fw_model")))
+  const condition = (k: string) => String((ans(k)?.value?.extras as Record<string, unknown> | undefined)?.condition ?? "");
+  const switches = records("access_switches");
+  const switchText = switches.map((r) => `${r.data.model ?? ""} ${r.data.poe ?? ""} ${r.data.notes ?? ""}`.toLowerCase()).join(" ");
+  const fwSaid = said("firewall.fw_model");
+  const fwCond = condition("firewall.fw_model");
+  if (/no dedicated firewall|isp[- ]provided|consumer/.test(fwSaid))
     hit("network", "firewall", 35, "No business-grade firewall — the internet router is the only protection", "Install a business-grade firewall");
-  if (/unmanaged/.test(said("firewall.core_model")))
+  // UniFi Security Gateway (USG) is discontinued and no longer patched.
+  else if (fwCond === "End-of-life" || /\busg\b|security gateway/.test(fwSaid))
+    hit("network", "fw_condition", 25, "Firewall is end-of-life and no longer receives security updates", "Replace the firewall with a current business-grade model");
+  else if (fwCond === "Poor") hit("network", "fw_condition", 25, "Firewall is in poor condition", "Replace the firewall with a current business-grade model");
+  else if (fwCond === "Fair") hit("network", "fw_condition", 10, "Firewall is aging", "Plan a firewall replacement");
+  if (/unmanaged/.test(said("firewall.core_model")) || /unmanaged/.test(switchText))
     hit("network", "switch", 15, "Unmanaged switch — no network segmentation, monitoring or guest isolation", "Replace with a managed switch (VLANs, monitoring)");
+  const coreCond = condition("firewall.core_model");
+  if (coreCond === "Poor" || coreCond === "End-of-life") hit("network", "switch_condition", 15, `Core switch is in ${coreCond.toLowerCase()} condition`, "Replace the core switch");
+  else if (coreCond === "Fair") hit("network", "switch_condition", 5, "Core switch is aging", "Plan a core switch replacement");
+  if (/(can'?t|cannot|unable to|not able to)[^.]*power|lost power|lose power|power drops/.test(`${said("firewall.core_model")} ${switchText}`))
+    hit("network", "switch_power", 15, "Switch can't reliably power phones and Wi-Fi — dropped calls and outages", "Replace with a switch that has enough PoE power budget");
+  if (switches.some((r) => r.data.keep === "Replace" || r.data.keep === "Decommission"))
+    hit("network", "switch_replace", 10, "Network switches are due for replacement", "Replace outdated network switches");
   if (!value("wan.p_carrier")) hit("network", "carrier", 10, "Internet carrier and account are undocumented", "Document the internet carrier, account and circuit");
-  if (!value("wan.s_carrier") && !value("wan.failover")) hit("network", "failover", 10, "Single internet connection with no failover", "Add a backup internet connection with automatic failover");
+  else if (/inactive|not working|unreliable|outage|only connection that/.test(`${said("wan.p_carrier")} ${said("wan.p_type")} ${said("wan.s_carrier")}`))
+    hit("network", "primary", 20, "Main internet connection is unreliable or may not be working", "Confirm and repair or replace the main internet circuit");
+  const real = (k: string) => !ans(k)?.notApplicable && !!value(k) && !/^(none|no|n\/?a)\b/i.test(value(k).trim());
+  if (!real("wan.s_carrier") && !real("wan.failover")) hit("network", "failover", 10, "Single internet connection with no failover", "Add a backup internet connection with automatic failover");
   const cond = value("cabling.condition");
   if (cond === "Poor" || cond === "End-of-life") hit("network", "cabling", 20, `Existing cabling is in ${cond.toLowerCase()} condition`, "Replace failing cable runs");
   else if (cond === "Fair") hit("network", "cabling", 10, "Existing cabling is only in fair condition", "Test and repair or replace weak cable runs");
