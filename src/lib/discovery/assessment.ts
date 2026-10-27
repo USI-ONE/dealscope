@@ -54,7 +54,16 @@ export type Grade = "A" | "B" | "C" | "D" | "F";
  * tables has rows, or — where skipping a section is itself the answer
  * ("no alarm") — that section is marked N/A.
  */
-type Evidence = { label: string; keys?: string[]; records?: string[]; naSection?: string };
+type Evidence = {
+  label: string;
+  keys?: string[];
+  records?: string[];
+  naSection?: string;
+  /** N/A on these keys means "not checked", not "doesn't apply". */
+  naIsMissing?: boolean;
+  /** Also captured when this answer mentions the pattern. */
+  mention?: { key: string; re: RegExp };
+};
 const EVIDENCE: Record<AreaKey, Evidence[]> = {
   network: [
     { label: "Firewall / router model", keys: ["firewall.fw_model"] },
@@ -65,14 +74,14 @@ const EVIDENCE: Record<AreaKey, Evidence[]> = {
     { label: "Cable labeling", keys: ["cabling.label_scheme", "mdf.labeling"] },
   ],
   wifi: [
-    { label: "Wi-Fi coverage / staff feedback", keys: ["wireless.dead_zones"] },
+    { label: "Wi-Fi coverage / staff feedback", keys: ["wireless.dead_zones"], naIsMissing: true },
     { label: "Access point inventory", records: ["aps"] },
   ],
   power: [
     { label: "Battery backup (UPS)", keys: ["mdf.ups"] },
     { label: "Dedicated circuits", keys: ["mdf.circuits"] },
     { label: "Surge protection", keys: ["environmental.surge"] },
-    { label: "Emergency lighting", keys: ["environmental.egress_lighting"] },
+    { label: "Emergency lighting", keys: ["environmental.egress_lighting"], mention: { key: "mdf.lighting", re: /emergency/i } },
     { label: "Generator", keys: ["environmental.generator", "mdf.generator"] },
   ],
   closet: [
@@ -199,7 +208,10 @@ export function assessSite(project: DiscoveryProject, data: ProjectData, resolve
     return !a.value?.followUp && v != null && (Array.isArray(v) ? v.length > 0 : typeof v === "object" || String(v).trim() !== "");
   };
   const captured = (e: Evidence) =>
-    !!e.keys?.some(answered) || !!e.records?.some((t) => records(t).length > 0) || (!!e.naSection && naSections.has(e.naSection));
+    !!e.keys?.some((k) => answered(k) && !(e.naIsMissing && ans(k)?.notApplicable)) ||
+    !!e.records?.some((t) => records(t).length > 0) ||
+    (!!e.naSection && naSections.has(e.naSection)) ||
+    (!!e.mention && e.mention.re.test(said(e.mention.key)));
 
   const areas: Record<AreaKey, Finding[]> = {
     network: [],
@@ -251,14 +263,21 @@ export function assessSite(project: DiscoveryProject, data: ProjectData, resolve
 
   // ── Wi-Fi
   const aps = records("aps");
-  if (/weak|unreliable|poor/.test(said("wireless.dead_zones"))) hit("wifi", "coverage", 35, "Staff report weak, unreliable Wi-Fi", "Survey and install Wi-Fi for full coverage");
-  if (aps.some((r) => r.data.keep === "Replace")) hit("wifi", "aps", 25, "Wi-Fi equipment is outdated and due for replacement", "Replace outdated Wi-Fi equipment with managed access points");
+  if (/weak|unreliable|poor|spotty|dead|no (real )?strong/.test(said("wireless.dead_zones"))) hit("wifi", "coverage", 35, "Staff report weak, unreliable Wi-Fi", "Survey and install Wi-Fi for full coverage");
+  if (aps.some((r) => r.data.keep === "Replace" || r.data.keep === "Decommission")) hit("wifi", "aps", 25, "Wi-Fi equipment is outdated and due for replacement", "Replace outdated Wi-Fi equipment with managed access points");
   if (aps.length <= 1) hit("wifi", "single", 15, "One Wi-Fi source covers the whole building", "Add access points so no area relies on a single one");
+
+  if (aps.some((r) => !/ceiling/i.test(r.data.mount ?? "") && /stack|mdf|closet|rack|shelf|utility|not mounted/i.test(`${r.data.location ?? ""} ${r.data.notes ?? ""}`)))
+    hit("wifi", "placement", 15, "Wi-Fi access point sits in the network closet, not where people work", "Mount access points on the ceiling in the work areas");
 
   // ── Power & resilience
   // On must-have power items the walk's N/A means "there isn't one".
+  const upsSizes = (said("mdf.ups").match(/\d{3,4}/g) ?? []).map(Number);
   if (ans("mdf.ups")?.notApplicable || /^none|no ups|not plugged|only the/.test(said("mdf.ups").trim()))
     hit("power", "ups", 35, "No battery backup on network equipment — any power blip drops internet, phones and card payments", "Install battery backup (UPS) for network and phone equipment");
+  // Sizes are recorded as VA/watts ("500ish", "Cyber power 500"); under 1000 is a desktop unit.
+  else if (upsSizes.length && Math.max(...upsSizes) < 1000)
+    hit("power", "ups_small", 20, "Battery backup is a small desktop unit — only minutes of runtime for the network", "Install a properly sized rack battery backup");
   if (ans("mdf.circuits")?.notApplicable || /none dedicated|^(none|no)\b/.test(said("mdf.circuits").trim())) hit("power", "circuit", 10, "Network equipment shares general-purpose circuits", "Add a dedicated circuit for the network equipment");
   if (value("environmental.surge") === "No") hit("power", "surge", 15, "No real surge protection — only old desk-level strips", "Replace old surge strips with proper surge protection");
   if (/poor|no emergency/.test(said("environmental.egress_lighting") + said("mdf.lighting")))
@@ -267,14 +286,18 @@ export function assessSite(project: DiscoveryProject, data: ProjectData, resolve
 
   // ── Network closet
   const access = value("mdf.room_access");
-  if (access === "Nothing" || /unlocked/.test(said("mdf.room_access") + said("mdf.door")))
+  // N/A on closet must-haves (lock, cooling, grounding, rack) means "there isn't one".
+  if (access === "Nothing" || ans("mdf.room_access")?.notApplicable || value("mdf.dedicated") === "Open area" || /unlocked/.test(said("mdf.room_access") + said("mdf.door")))
     hit("closet", "secure", 25, "Network equipment isn't secured — the closet is open or usually unlocked", "Secure the network equipment in a locked cabinet or room");
-  if (/none/.test(said("mdf.hvac"))) hit("closet", "cooling", 10, "No cooling for the equipment", "Add ventilation or cooling for the equipment");
+  if (ans("mdf.hvac")?.notApplicable || /none|^no\b/.test(said("mdf.hvac").trim())) hit("closet", "cooling", 10, "No cooling for the equipment", "Add ventilation or cooling for the equipment");
   if (/cluttered|dumping/.test(said("mdf.housekeeping"))) hit("closet", "clutter", 15, "Closet is cluttered and used for storage", "Clear storage out of the network closet");
   if (value("mdf.combustibles") === "Yes") hit("closet", "combustibles", 10, "Combustibles stored with the equipment", "Remove combustibles from around the equipment");
-  if (value("facility.wet") === "Yes" || /plumb|water heater/.test(said("mdf.overhead_water")))
+  if (value("facility.wet") === "Yes" || /plumb|water heater|leak|flood|vulnerable/.test(said("mdf.overhead_water") + said("facility.wet")))
     hit("closet", "water", 15, "Water or plumbing near the equipment", "Move or protect equipment away from water");
-  if (value("mdf.tmgb") === "No") hit("closet", "ground", 5, "Equipment isn't grounded", "Ground and bond the equipment rack");
+  if (ans("mdf.rack_condition")?.notApplicable || /no rack/.test(said("mdf.rack_condition")))
+    hit("closet", "rack", 10, "No equipment rack — gear sits on shelves, walls or the floor", "Install a lockable equipment rack or wall cabinet");
+  else if (/poor|end-of-life/.test(said("mdf.rack_condition"))) hit("closet", "rack", 10, "Equipment rack is in poor condition", "Replace the equipment rack");
+  if (value("mdf.tmgb") === "No" || ans("mdf.tmgb")?.notApplicable) hit("closet", "ground", 5, "Equipment isn't grounded", "Ground and bond the equipment rack");
   if (/dark|no switch/.test(said("mdf.lighting"))) hit("closet", "light", 5, "Poor lighting in the closet", "Add a working light in the closet");
 
   // ── Physical security
