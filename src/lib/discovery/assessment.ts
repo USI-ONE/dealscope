@@ -286,7 +286,10 @@ export function assessSite(project: DiscoveryProject, data: ProjectData, resolve
     hit("security", "cameras", 15, "Analog camera system on a standalone recorder — can't be viewed centrally", "Move cameras to the company-standard platform");
   if (naSections.has("alarms")) hit("security", "alarm", 20, "No intrusion alarm", "Install a monitored intrusion alarm");
   else if (/not confirmed|not sure|unknown/.test(said("alarms.monitoring_co"))) hit("security", "alarm", 10, "Alarm monitoring isn't confirmed", "Confirm the alarm is working and monitored");
-  if (naSections.has("access")) hit("security", "access", 5, "Keys only — no record of who comes and goes", "Consider access control on main doors");
+  if (naSections.has("access")) {
+    hit("security", "access", 10, "No card access — physical keys only, no record of who comes and goes", "Add card access control on main doors");
+    hit("security", "visitors", 5, "No visitor logging", "Start a visitor sign-in log or system");
+  } else if (/^(none|no)\b/.test(said("access.visitor_mgmt").trim())) hit("security", "visitors", 5, "No visitor logging", "Start a visitor sign-in log or system");
 
   // ── Phones
   if (/nortel|legacy|pbx/.test(said("voice.pbx")) && !/voip/.test(said("voice.pbx")))
