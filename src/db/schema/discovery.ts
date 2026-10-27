@@ -23,6 +23,7 @@ import {
   index,
   integer,
   jsonb,
+  numeric,
   pgEnum,
   pgTable,
   text,
@@ -453,3 +454,74 @@ export const discoveryInfoRequests = pgTable(
   }),
 );
 export type DiscoveryInfoRequest = typeof discoveryInfoRequests.$inferSelect;
+
+/**
+ * Per-organization price list for install scopes. Seeded with the company
+ * standard (UniFi network, Verkada security, labor) and edited in the app;
+ * `qbItem` is the QuickBooks Product/Service name used on export.
+ */
+export const discoveryCatalogItems = pgTable(
+  "discovery_catalog_items",
+  {
+    id: id(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    sku: text("sku").notNull(),
+    name: text("name").notNull(),
+    description: text("description"),
+    category: text("category").notNull().default("Other"),
+    vendor: text("vendor"),
+    /** ea | hr | drop | yr | site */
+    unit: text("unit").notNull().default("ea"),
+    /** null = no price set yet */
+    priceCents: integer("price_cents"),
+    /** Subscription (license / monitoring), billed yearly rather than once. */
+    recurring: boolean("recurring").notNull().default(false),
+    qbItem: text("qb_item"),
+    active: boolean("active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(0),
+    ...timestamps,
+  },
+  (t) => ({
+    skuIdx: uniqueIndex("discovery_catalog_items_sku_idx").on(t.organizationId, t.sku),
+  }),
+);
+export type DiscoveryCatalogItem = typeof discoveryCatalogItems.$inferSelect;
+
+/**
+ * Install scope (bill of materials + labor) for a walk. Generated from the
+ * assessment and walk counts (`sourceRef` keeps rebuilds idempotent) or
+ * added by hand. Lines someone has edited are left alone on rebuild.
+ */
+export const discoveryScopeLines = pgTable(
+  "discovery_scope_lines",
+  {
+    id: id(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => discoveryProjects.id, { onDelete: "cascade" }),
+    /** auto | manual */
+    source: text("source").notNull().default("manual"),
+    sourceRef: text("source_ref"),
+    sku: text("sku").notNull(),
+    qty: numeric("qty", { precision: 10, scale: 2 }).notNull().default("1"),
+    /** Overrides the price list when set. */
+    priceCents: integer("price_cents"),
+    /** Why it's in scope (the finding or count it came from). */
+    reason: text("reason"),
+    notes: text("notes"),
+    included: boolean("included").notNull().default(true),
+    edited: boolean("edited").notNull().default(false),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdByMembershipId: uuid("created_by_membership_id").references(() => memberships.id, { onDelete: "set null" }),
+    ...timestamps,
+  },
+  (t) => ({
+    projectIdx: index("discovery_scope_lines_project_idx").on(t.projectId),
+  }),
+);
+export type DiscoveryScopeLine = typeof discoveryScopeLines.$inferSelect;

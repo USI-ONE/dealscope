@@ -34,6 +34,7 @@ export function WalkNav({
     { href: `${base}/follow-ups`, label: "Follow-ups", badge: counts.followUps, tone: "amber" },
     { href: `${base}/requests`, label: "Client requests", badge: counts.requestsAnswered, tone: "violet" },
     { href: `${base}/remediation`, label: "Remediation", badge: counts.tasksOpen, tone: "emerald" },
+    { href: `${base}/scope`, label: "Install scope" },
     { href: `${base}/reports`, label: "Reports" },
   ];
   const reportPaths = ["/reports", "/assessment", "/install", "/report", "/topology"];
