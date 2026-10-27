@@ -212,9 +212,9 @@ export default async function SiteAssessmentPage({ params }: { params: Promise<{
                 </div>
               </div>
               {impacts.get(x.key) && <p className="mt-2.5 text-sm font-medium">{impacts.get(x.key)}</p>}
-              {!x.assessed && (
+              {x.missing.length > 0 && (
                 <p className="mt-2 text-sm text-amber-700 dark:text-amber-400">
-                  Not assessed — still to check: {x.missing.join(", ")}.
+                  {x.assessed ? "Partly checked (capped below A) — still to check" : "Not assessed — still to check"}: {x.missing.join(", ")}.
                 </p>
               )}
               {x.findings.length ? (

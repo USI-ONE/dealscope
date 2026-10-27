@@ -165,6 +165,8 @@ export type SiteAssessment = {
 };
 
 const LEVELS = ["Blocker", "High", "Medium", "Low"];
+/** Best possible score while evidence is still missing — a B, never an A. */
+const PARTIAL_CAP = 89;
 const WORK_TABLES = ["aps", "access_switches", "cameras", "doors", "printers", "rooms", "servers", "workstations", "idfs"];
 
 export function assessSite(project: DiscoveryProject, data: ProjectData, resolved: Set<string> = new Set()): SiteAssessment {
@@ -299,16 +301,19 @@ export function assessSite(project: DiscoveryProject, data: ProjectData, resolve
 
   const scored: AreaScore[] = AREAS.map((a) => {
     const findings = areas[a.key].sort((x, y) => Number(x.resolved) - Number(y.resolved) || y.points - x.points);
-    const baseScore = Math.max(0, 100 - findings.reduce((s, f) => s + f.points, 0));
-    const score = Math.max(0, 100 - findings.filter((f) => !f.resolved).reduce((s, f) => s + f.points, 0));
     const missing = EVIDENCE[a.key].filter((e) => !captured(e)).map((e) => e.label);
+    // A half-checked area can't earn an A: unchecked items might be problems.
+    const cap = missing.length ? PARTIAL_CAP : 100;
+    const baseScore = Math.min(cap, Math.max(0, 100 - findings.reduce((s, f) => s + f.points, 0)));
+    const score = Math.min(cap, Math.max(0, 100 - findings.filter((f) => !f.resolved).reduce((s, f) => s + f.points, 0)));
     const assessed = missing.length * 2 <= EVIDENCE[a.key].length;
     return { ...a, score, grade: toGrade(score), baseScore, baseGrade: toGrade(baseScore), findings, assessed, missing };
   });
   const graded = scored.filter((a) => a.assessed);
   const avg = (xs: number[]) => (xs.length ? Math.round(xs.reduce((s, x) => s + x, 0) / xs.length) : 0);
-  const score = avg(graded.map((a) => a.score));
-  const baseScore = avg(graded.map((a) => a.baseScore));
+  const overallCap = graded.length < scored.length ? PARTIAL_CAP : 100;
+  const score = Math.min(overallCap, avg(graded.map((a) => a.score)));
+  const baseScore = Math.min(overallCap, avg(graded.map((a) => a.baseScore)));
   const allFindings = scored.flatMap((a) => a.findings);
 
   const risks = records("risks")
@@ -349,7 +354,7 @@ export function assessSite(project: DiscoveryProject, data: ProjectData, resolve
     ...scored.map((a) => {
       const found = a.findings.map((f) => (f.resolved ? `RESOLVED: ${f.text}` : f.text)).join("; ");
       return a.assessed
-        ? `- ${a.title}: ${a.score} (${a.grade})${found ? ` — ${found}` : ""}`
+        ? `- ${a.title}: ${a.score} (${a.grade})${found ? ` — ${found}` : ""}${a.missing.length ? ` [not yet checked: ${a.missing.join(", ")}]` : ""}`
         : `- ${a.title}: NOT ASSESSED (missing: ${a.missing.join(", ")})${found ? ` — noted anyway: ${found}` : ""}`;
     }),
     "",
