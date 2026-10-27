@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import {
   addScopeLine,
   buildScope,
+  clearScopePrices,
+  confirmScopePrices,
   deleteScopeLine,
   resetScopeLine,
   updateScopeLine,
@@ -22,7 +24,7 @@ export type BoardLine = {
   unit: string;
   qty: number;
   priceCents: number | null;
-  priceOverridden: boolean;
+  pricedAt: string | null;
   recurring: boolean;
   reason: string | null;
   notes: string | null;
@@ -55,6 +57,42 @@ export function BuildScopeButton({ projectId, label }: { projectId: string; labe
     >
       {pending ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />} {label}
     </button>
+  );
+}
+
+/** Start a new sales order (clear) or vouch for yesterday's prices (confirm). */
+export function PriceActions({ projectId, stale, priced }: { projectId: string; stale: number; priced: number }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const run = (fn: () => Promise<{ serverError?: string } | undefined>, ok: string) =>
+    start(async () => {
+      const r = await fn();
+      if (r?.serverError) return void toast.error(r.serverError);
+      toast.success(ok);
+      router.refresh();
+    });
+  if (!priced) return null;
+  return (
+    <span className="flex flex-wrap gap-2 print:hidden">
+      {stale > 0 && (
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => run(() => confirmScopePrices({ projectId }), "Prices confirmed for today")}
+          className="inline-flex h-9 items-center rounded-full bg-amber-600 px-3 text-sm font-semibold text-white disabled:opacity-60"
+        >
+          Prices still current — confirm all
+        </button>
+      )}
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() => run(() => clearScopePrices({ projectId }), "Prices cleared — enter today’s prices")}
+        className="inline-flex h-9 items-center rounded-full border border-border px-3 text-sm font-medium disabled:opacity-60"
+      >
+        Clear prices for a new order
+      </button>
+    </span>
   );
 }
 
@@ -93,7 +131,9 @@ function Line({ projectId, line: l, others }: { projectId: string; line: BoardLi
   const router = useRouter();
   const [pending, start] = useTransition();
   const [qty, setQty] = useState(String(l.qty));
-  const [price, setPrice] = useState(l.priceOverridden && l.priceCents != null ? String(l.priceCents / 100) : "");
+  const [price, setPrice] = useState(l.priceCents != null ? String(l.priceCents / 100) : "");
+  const pricedDay = l.pricedAt ? new Date(l.pricedAt).toLocaleDateString("en-US", { timeZone: "America/Chicago" }) : null;
+  const stale = l.priceCents != null && pricedDay !== new Date().toLocaleDateString("en-US", { timeZone: "America/Chicago" });
   const [notes, setNotes] = useState(l.notes ?? "");
 
   const save = (patch: Parameters<typeof updateScopeLine>[0]) =>
@@ -164,16 +204,18 @@ function Line({ projectId, line: l, others }: { projectId: string; line: BoardLi
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
                 onBlur={() => {
-                  if (price.trim() === "") return l.priceOverridden && save({ projectId, lineId: l.id, price: null });
+                  if (price.trim() === "") return l.priceCents != null && save({ projectId, lineId: l.id, price: null });
                   const n = Number(price.replace(/[$,]/g, ""));
-                  if (!Number.isFinite(n) || n < 0) return setPrice("");
-                  save({ projectId, lineId: l.id, price: n });
+                  if (!Number.isFinite(n) || n < 0) return setPrice(l.priceCents != null ? String(l.priceCents / 100) : "");
+                  if (Math.round(n * 100) !== l.priceCents || stale) save({ projectId, lineId: l.id, price: n });
                 }}
-                placeholder={l.priceCents == null ? "price?" : (l.priceCents / 100).toFixed(2)}
+                placeholder="today’s price"
                 aria-label="Unit price"
-                className={cn(input, "w-24 text-right", l.priceCents == null && "border-amber-500/60 placeholder:text-amber-600")}
+                title={pricedDay ? `Priced ${pricedDay}` : "Enter today’s price"}
+                className={cn(input, "w-24 text-right", (l.priceCents == null || stale) && "border-amber-500/60 placeholder:text-amber-600")}
               />
             </label>
+            {stale && <span className="text-[11px] font-medium text-amber-700 dark:text-amber-400">priced {pricedDay}</span>}
             <span className="w-24 text-right text-sm font-semibold tabular-nums">{l.priceCents == null ? "—" : usd(lineTotal)}</span>
           </>
         )}

@@ -456,9 +456,10 @@ export const discoveryInfoRequests = pgTable(
 export type DiscoveryInfoRequest = typeof discoveryInfoRequests.$inferSelect;
 
 /**
- * Per-organization price list for install scopes. Seeded with the company
+ * Per-organization item list for install scopes. Seeded with the company
  * standard (UniFi network, Verkada security, labor) and edited in the app;
- * `qbItem` is the QuickBooks Product/Service name used on export.
+ * `qbItem` is the QuickBooks item name used on export. No prices: they
+ * change daily and are entered on each sales order.
  */
 export const discoveryCatalogItems = pgTable(
   "discovery_catalog_items",
@@ -474,7 +475,7 @@ export const discoveryCatalogItems = pgTable(
     vendor: text("vendor"),
     /** ea | hr | drop | yr | site */
     unit: text("unit").notNull().default("ea"),
-    /** null = no price set yet */
+    /** Unused: prices are set on each sales order (scope line), not here. */
     priceCents: integer("price_cents"),
     /** Subscription (license / monitoring), billed yearly rather than once. */
     recurring: boolean("recurring").notNull().default(false),
@@ -509,8 +510,9 @@ export const discoveryScopeLines = pgTable(
     sourceRef: text("source_ref"),
     sku: text("sku").notNull(),
     qty: numeric("qty", { precision: 10, scale: 2 }).notNull().default("1"),
-    /** Overrides the price list when set. */
+    /** Unit price for this sales order — prices move daily, so never defaulted. */
     priceCents: integer("price_cents"),
+    pricedAt: timestamp("priced_at", { withTimezone: true }),
     /** Why it's in scope (the finding or count it came from). */
     reason: text("reason"),
     notes: text("notes"),

@@ -4,7 +4,6 @@
  * and prices, then export for QuickBooks to raise the sales order and hand
  * the crew-day estimate to scheduling.
  */
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Download } from "lucide-react";
 import { requireRole } from "@/lib/auth-helpers";
@@ -12,7 +11,7 @@ import { loadSiteAssessment } from "@/lib/discovery/assessment-store";
 import { getProject } from "@/lib/discovery/load";
 import { loadScope, money, plannedScope } from "@/lib/discovery/scope";
 import { PrintButton } from "@/components/discovery/print-button";
-import { BuildScopeButton, ScopeBoard } from "@/components/discovery/scope-board";
+import { BuildScopeButton, PriceActions, ScopeBoard } from "@/components/discovery/scope-board";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Install scope" };
@@ -27,6 +26,7 @@ export default async function ScopePage({ params }: { params: Promise<{ id: stri
     loadScope(ctx.organization.id, project.id),
   ]);
   const { counts: c } = plannedScope(assessment, data);
+  const ready = lines.length > 0 && totals.unpriced === 0 && totals.stalePrices === 0;
 
   const facts = [
     c.sqft ? `${c.sqft.toLocaleString()} sq ft` : null,
@@ -51,14 +51,22 @@ export default async function ScopePage({ params }: { params: Promise<{ id: stri
           </div>
           <div className="flex flex-wrap items-center gap-2 print:hidden">
             <BuildScopeButton projectId={project.id} label={lines.length ? "Refresh from walk" : "Build scope"} />
-            {lines.length > 0 && (
-              <a
-                href={`/discovery/${project.id}/scope.csv`}
-                className="inline-flex h-10 items-center gap-1.5 rounded-full border border-border px-4 text-sm font-medium"
-              >
-                <Download className="size-4" /> QuickBooks Desktop sales order
-              </a>
-            )}
+            {lines.length > 0 &&
+              (ready ? (
+                <a
+                  href={`/discovery/${project.id}/scope.csv`}
+                  className="inline-flex h-10 items-center gap-1.5 rounded-full border border-border px-4 text-sm font-medium"
+                >
+                  <Download className="size-4" /> QuickBooks Desktop sales order
+                </a>
+              ) : (
+                <span
+                  title="Every line needs today’s price first"
+                  className="inline-flex h-10 cursor-not-allowed items-center gap-1.5 rounded-full border border-dashed border-border px-4 text-sm font-medium text-muted-foreground"
+                >
+                  <Download className="size-4" /> Sales order — price all lines first
+                </span>
+              ))}
             <PrintButton />
           </div>
         </div>
@@ -74,14 +82,21 @@ export default async function ScopePage({ params }: { params: Promise<{ id: stri
           <p className="rounded-xl bg-primary/5 p-4 text-sm">Build the scope to turn this walk’s findings and counts into a bill of materials.</p>
         )}
 
-        {totals.unpriced > 0 && (
-          <p className="rounded-xl bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-300 print:hidden">
-            {totals.unpriced} line{totals.unpriced === 1 ? " has" : "s have"} no price yet (shown as “price?”). Set them here or on the{" "}
-            <Link href="/discovery/catalog" className="font-semibold underline">
-              price list
-            </Link>{" "}
-            before exporting — totals leave them out.
-          </p>
+        {lines.length > 0 && (totals.unpriced > 0 || totals.stalePrices > 0) && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-300 print:hidden">
+            <p>
+              Prices change daily, so they’re entered for each sales order.{" "}
+              {totals.unpriced > 0 && `${totals.unpriced} line${totals.unpriced === 1 ? " needs" : "s need"} today’s price. `}
+              {totals.stalePrices > 0 && `${totals.stalePrices} price${totals.stalePrices === 1 ? " was" : "s were"} set on an earlier day — re-check before ordering. `}
+              Totals leave out unpriced lines.
+            </p>
+            <PriceActions projectId={project.id} stale={totals.stalePrices} priced={lines.filter((l) => l.priceCents != null).length} />
+          </div>
+        )}
+        {lines.length > 0 && ready && (
+          <div className="flex justify-end print:hidden">
+            <PriceActions projectId={project.id} stale={0} priced={lines.length} />
+          </div>
         )}
       </section>
 

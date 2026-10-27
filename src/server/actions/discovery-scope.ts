@@ -6,7 +6,7 @@
  * the organization's price list (see lib/discovery/scope.ts).
  */
 import { revalidatePath } from "next/cache";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { discoveryCatalogItems, discoveryScopeLines } from "@/db/schema";
@@ -51,7 +51,7 @@ export const updateScopeLine = authedAction
       projectId: z.string().uuid(),
       lineId: z.string().uuid(),
       qty: z.number().min(0).max(100_000).optional(),
-      /** Dollars; null clears the override and falls back to the price list. */
+      /** Dollars for this sales order; null clears it. */
       price: cents.nullable().optional(),
       included: z.boolean().optional(),
       notes: z.string().max(2000).nullable().optional(),
@@ -62,7 +62,10 @@ export const updateScopeLine = authedAction
     const p = await project(parsedInput.projectId, ctx.organization.id);
     const set: Partial<typeof discoveryScopeLines.$inferInsert> = { updatedAt: new Date(), edited: true };
     if (parsedInput.qty !== undefined) set.qty = String(parsedInput.qty);
-    if (parsedInput.price !== undefined) set.priceCents = parsedInput.price;
+    if (parsedInput.price !== undefined) {
+      set.priceCents = parsedInput.price;
+      set.pricedAt = parsedInput.price == null ? null : new Date();
+    }
     if (parsedInput.included !== undefined) set.included = parsedInput.included;
     if (parsedInput.notes !== undefined) set.notes = parsedInput.notes?.trim() || null;
     const [l] = await db
@@ -75,6 +78,34 @@ export const updateScopeLine = authedAction
     return { ok: true };
   });
 
+/** Clear every price on this scope to start a new sales order. */
+export const clearScopePrices = authedAction
+  .schema(z.object({ projectId: z.string().uuid() }))
+  .action(async ({ parsedInput, ctx }) => {
+    await authorize("update", "project");
+    const p = await project(parsedInput.projectId, ctx.organization.id);
+    await db
+      .update(discoveryScopeLines)
+      .set({ priceCents: null, pricedAt: null, updatedAt: new Date() })
+      .where(eq(discoveryScopeLines.projectId, p.id));
+    refresh(p.id);
+    return { ok: true };
+  });
+
+/** Re-stamp today's date on prices someone has checked are still right. */
+export const confirmScopePrices = authedAction
+  .schema(z.object({ projectId: z.string().uuid() }))
+  .action(async ({ parsedInput, ctx }) => {
+    await authorize("update", "project");
+    const p = await project(parsedInput.projectId, ctx.organization.id);
+    await db
+      .update(discoveryScopeLines)
+      .set({ pricedAt: new Date(), updatedAt: new Date() })
+      .where(and(eq(discoveryScopeLines.projectId, p.id), isNotNull(discoveryScopeLines.priceCents)));
+    refresh(p.id);
+    return { ok: true };
+  });
+
 /** Put an edited line back under the plan's control (next rebuild resets it). */
 export const resetScopeLine = authedAction
   .schema(z.object({ projectId: z.string().uuid(), lineId: z.string().uuid() }))
@@ -83,7 +114,7 @@ export const resetScopeLine = authedAction
     const p = await project(parsedInput.projectId, ctx.organization.id);
     await db
       .update(discoveryScopeLines)
-      .set({ edited: false, priceCents: null, included: true, updatedAt: new Date() })
+      .set({ edited: false, included: true, updatedAt: new Date() })
       .where(
         and(eq(discoveryScopeLines.id, parsedInput.lineId), eq(discoveryScopeLines.projectId, p.id), eq(discoveryScopeLines.source, "auto")),
       );
@@ -142,14 +173,13 @@ export const deleteScopeLine = authedAction
     return { ok: true };
   });
 
-// ── Price list (managers and up) ───────────────────────────────────────
+// ── Item list (managers and up) ────────────────────────────────────────
 
 const catalogFields = z.object({
   name: z.string().trim().min(2).max(200),
   category: z.enum(SCOPE_CATEGORIES),
   vendor: z.string().trim().max(80).nullable().optional(),
   unit: z.string().trim().min(1).max(20),
-  price: cents.nullable(),
   recurring: z.boolean(),
   /** QuickBooks Desktop item names are capped at 31 characters. */
   qbItem: z.string().trim().max(31, "QuickBooks Desktop item names are 31 characters max").nullable().optional(),
@@ -160,10 +190,10 @@ export const updateCatalogItem = authedAction
   .schema(catalogFields.extend({ itemId: z.string().uuid() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("manage", "project");
-    const { itemId, price, ...rest } = parsedInput;
+    const { itemId, ...rest } = parsedInput;
     const [row] = await db
       .update(discoveryCatalogItems)
-      .set({ ...rest, vendor: rest.vendor || null, qbItem: rest.qbItem || null, priceCents: price, updatedAt: new Date() })
+      .set({ ...rest, vendor: rest.vendor || null, qbItem: rest.qbItem || null, updatedAt: new Date() })
       .where(and(eq(discoveryCatalogItems.id, itemId), eq(discoveryCatalogItems.organizationId, ctx.organization.id)))
       .returning({ id: discoveryCatalogItems.id });
     if (!row) throw new PublicError("Item not found");
@@ -175,7 +205,7 @@ export const addCatalogItem = authedAction
   .schema(catalogFields.extend({ sku: z.string().trim().min(2).max(31).regex(/^[A-Za-z0-9._-]+$/, "Letters, numbers, dot, dash or underscore") }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("manage", "project");
-    const { price, sku, ...rest } = parsedInput;
+    const { sku, ...rest } = parsedInput;
     const [row] = await db
       .insert(discoveryCatalogItems)
       .values({
@@ -184,7 +214,6 @@ export const addCatalogItem = authedAction
         sku: sku.toUpperCase(),
         vendor: rest.vendor || null,
         qbItem: rest.qbItem || sku.toUpperCase(),
-        priceCents: price,
         sortOrder: 1_000,
       })
       .onConflictDoNothing()

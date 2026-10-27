@@ -296,7 +296,7 @@ export default async function PortfolioPage({ searchParams }: { searchParams: Pr
               {scoped.length > 0 && (
                 <div className="flex flex-wrap gap-2 print:hidden">
                   <Link href="/discovery/catalog" className="inline-flex h-9 items-center rounded-full border border-border px-3 text-sm font-medium">
-                    Price list
+                    Item list
                   </Link>
                   <a
                     href={`/discovery/portfolio/scope.csv?ids=${ids.join(",")}`}
@@ -361,7 +361,7 @@ export default async function PortfolioPage({ searchParams }: { searchParams: Pr
               </table>
             </div>
             <p className="text-xs text-muted-foreground">
-              UniFi network &amp; Wi-Fi and Verkada security, sized from each walk. Totals leave out unpriced lines. Crew days assume a two-tech crew.
+              UniFi network &amp; Wi-Fi and Verkada security, sized from each walk. Prices are entered per sales order on each site’s scope; totals leave out unpriced lines. Crew days assume a two-tech crew.
             </p>
           </section>
 

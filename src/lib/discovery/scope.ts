@@ -27,53 +27,47 @@ type CatalogSeed = {
   category: (typeof SCOPE_CATEGORIES)[number];
   vendor?: string;
   unit?: string;
-  /** Dollars; null = set a price before quoting. */
-  price: number | null;
   recurring?: boolean;
 };
 
-/**
- * Starting price list. Hardware is seeded at approximate list price; labor,
- * cabling, Verkada and subcontract lines start unpriced so nothing goes to
- * QuickBooks at a guessed number.
- */
+/** Starting item list. No prices are stored: they're entered on each sales order. */
 export const DEFAULT_CATALOG: CatalogSeed[] = [
-  { sku: "UI-UCG-MAX", name: "UniFi Cloud Gateway Max (firewall / router)", category: "Network", vendor: "Ubiquiti", price: 199 },
-  { sku: "UI-UDM-PRO-MAX", name: "UniFi Dream Machine Pro Max (rack firewall / router)", category: "Network", vendor: "Ubiquiti", price: 599 },
-  { sku: "UI-USW-PRO-24-POE", name: "UniFi Switch Pro 24 PoE", category: "Network", vendor: "Ubiquiti", price: 699 },
-  { sku: "UI-USW-PRO-48-POE", name: "UniFi Switch Pro 48 PoE", category: "Network", vendor: "Ubiquiti", price: 1099 },
-  { sku: "UI-U5G-MAX", name: "UniFi 5G Max (cellular internet failover)", category: "Network", vendor: "Ubiquiti", price: 299 },
-  { sku: "PATCH-KIT", name: "Patch cables & rack hardware kit (per switch)", category: "Network", price: 150 },
-  { sku: "UI-U7-PRO", name: "UniFi U7 Pro access point (Wi-Fi 7), ceiling mounted", category: "Wi-Fi", vendor: "Ubiquiti", price: 189 },
-  { sku: "UPS-1500-RM", name: "Rack battery backup (UPS) 1500VA with network card", category: "Power", price: 899 },
-  { sku: "ELEC-CIRCUIT", name: "Electrician: dedicated 20A circuit for the network cabinet", category: "Power", unit: "site", price: null },
-  { sku: "ELEC-SPD", name: "Electrician: panel surge protective device", category: "Power", unit: "site", price: null },
-  { sku: "RACK-12U-WALL", name: "12U locking wall-mount network cabinet", category: "Closet", price: 399 },
-  { sku: "RACK-24U", name: "24U locking network cabinet", category: "Closet", price: 899 },
-  { sku: "RACK-FAN", name: "Cabinet ventilation fan kit", category: "Closet", price: 149 },
-  { sku: "RACK-GROUND", name: "Rack grounding & bonding kit", category: "Closet", price: 89 },
-  { sku: "PATCH-PANEL-24", name: "Cat6 24-port patch panel", category: "Cabling", price: 79 },
-  { sku: "CAT6-DROP", name: "Cat6 drop: installed, terminated, tested & labeled", category: "Cabling", unit: "drop", price: null },
-  { sku: "VK-CAM-DOME", name: "Verkada indoor dome camera", category: "Security", vendor: "Verkada", price: null },
-  { sku: "VK-CAM-BULLET", name: "Verkada outdoor bullet camera", category: "Security", vendor: "Verkada", price: null },
-  { sku: "VK-CAM-LIC", name: "Verkada camera license (1 year)", category: "Security", vendor: "Verkada", unit: "yr", price: null, recurring: true },
-  { sku: "VK-AC-CTRL", name: "Verkada 4-door access controller", category: "Security", vendor: "Verkada", price: null },
-  { sku: "VK-AC-READER", name: "Verkada door reader", category: "Security", vendor: "Verkada", price: null },
-  { sku: "DOOR-HW", name: "Door hardware: electric strike, exit sensor & door contact (per door)", category: "Security", price: null },
-  { sku: "VK-AC-LIC", name: "Verkada access control license, per door (1 year)", category: "Security", vendor: "Verkada", unit: "yr", price: null, recurring: true },
-  { sku: "VK-ALARM-HUB", name: "Verkada intrusion alarm hub & keypad", category: "Security", vendor: "Verkada", price: null },
-  { sku: "VK-ALARM-SENSOR", name: "Verkada door contact / motion sensor", category: "Security", vendor: "Verkada", price: null },
-  { sku: "VK-ALARM-MON", name: "Verkada alarm professional monitoring (1 year)", category: "Security", vendor: "Verkada", unit: "yr", price: null, recurring: true },
-  { sku: "VK-GUEST", name: "Verkada Guest visitor management (1 year, per site)", category: "Security", vendor: "Verkada", unit: "yr", price: null, recurring: true },
-  { sku: "VISITOR-TABLET", name: "Tablet & stand for visitor sign-in", category: "Security", price: null },
-  { sku: "SVC-PCI", name: "PCI readiness review & card-payment network segmentation", category: "Services", unit: "site", price: null },
-  { sku: "LAB-NET", name: "Network install & configuration labor", category: "Labor", unit: "hr", price: null },
-  { sku: "LAB-LV", name: "Security / low-voltage install labor", category: "Labor", unit: "hr", price: null },
-  { sku: "LAB-PM", name: "Project management, documentation & cutover", category: "Labor", unit: "hr", price: null },
-  { sku: "BY-CARRIER", name: "Main internet circuit repair or replacement (by carrier)", category: "By others", unit: "site", price: 0 },
-  { sku: "BY-CELL-PLAN", name: "Cellular data plan for failover (by carrier)", category: "By others", unit: "site", price: 0 },
-  { sku: "BY-EM-LIGHTING", name: "Emergency lighting (by facilities / electrician)", category: "By others", unit: "site", price: 0 },
-  { sku: "BY-GENERATOR", name: "Generator / extended backup power (review with client)", category: "By others", unit: "site", price: 0 },
+  { sku: "UI-UCG-MAX", name: "UniFi Cloud Gateway Max (firewall / router)", category: "Network", vendor: "Ubiquiti" },
+  { sku: "UI-UDM-PRO-MAX", name: "UniFi Dream Machine Pro Max (rack firewall / router)", category: "Network", vendor: "Ubiquiti" },
+  { sku: "UI-USW-PRO-24-POE", name: "UniFi Switch Pro 24 PoE", category: "Network", vendor: "Ubiquiti" },
+  { sku: "UI-USW-PRO-48-POE", name: "UniFi Switch Pro 48 PoE", category: "Network", vendor: "Ubiquiti" },
+  { sku: "UI-U5G-MAX", name: "UniFi 5G Max (cellular internet failover)", category: "Network", vendor: "Ubiquiti" },
+  { sku: "PATCH-KIT", name: "Patch cables & rack hardware kit (per switch)", category: "Network" },
+  { sku: "UI-U7-PRO", name: "UniFi U7 Pro access point (Wi-Fi 7), ceiling mounted", category: "Wi-Fi", vendor: "Ubiquiti" },
+  { sku: "UPS-1500-RM", name: "Rack battery backup (UPS) 1500VA with network card", category: "Power" },
+  { sku: "ELEC-CIRCUIT", name: "Electrician: dedicated 20A circuit for the network cabinet", category: "Power", unit: "site" },
+  { sku: "ELEC-SPD", name: "Electrician: panel surge protective device", category: "Power", unit: "site" },
+  { sku: "RACK-12U-WALL", name: "12U locking wall-mount network cabinet", category: "Closet" },
+  { sku: "RACK-24U", name: "24U locking network cabinet", category: "Closet" },
+  { sku: "RACK-FAN", name: "Cabinet ventilation fan kit", category: "Closet" },
+  { sku: "RACK-GROUND", name: "Rack grounding & bonding kit", category: "Closet" },
+  { sku: "PATCH-PANEL-24", name: "Cat6 24-port patch panel", category: "Cabling" },
+  { sku: "CAT6-DROP", name: "Cat6 drop: installed, terminated, tested & labeled", category: "Cabling", unit: "drop" },
+  { sku: "VK-CAM-DOME", name: "Verkada indoor dome camera", category: "Security", vendor: "Verkada" },
+  { sku: "VK-CAM-BULLET", name: "Verkada outdoor bullet camera", category: "Security", vendor: "Verkada" },
+  { sku: "VK-CAM-LIC", name: "Verkada camera license (1 year)", category: "Security", vendor: "Verkada", unit: "yr", recurring: true },
+  { sku: "VK-AC-CTRL", name: "Verkada 4-door access controller", category: "Security", vendor: "Verkada" },
+  { sku: "VK-AC-READER", name: "Verkada door reader", category: "Security", vendor: "Verkada" },
+  { sku: "DOOR-HW", name: "Door hardware: electric strike, exit sensor & door contact (per door)", category: "Security" },
+  { sku: "VK-AC-LIC", name: "Verkada access control license, per door (1 year)", category: "Security", vendor: "Verkada", unit: "yr", recurring: true },
+  { sku: "VK-ALARM-HUB", name: "Verkada intrusion alarm hub & keypad", category: "Security", vendor: "Verkada" },
+  { sku: "VK-ALARM-SENSOR", name: "Verkada door contact / motion sensor", category: "Security", vendor: "Verkada" },
+  { sku: "VK-ALARM-MON", name: "Verkada alarm professional monitoring (1 year)", category: "Security", vendor: "Verkada", unit: "yr", recurring: true },
+  { sku: "VK-GUEST", name: "Verkada Guest visitor management (1 year, per site)", category: "Security", vendor: "Verkada", unit: "yr", recurring: true },
+  { sku: "VISITOR-TABLET", name: "Tablet & stand for visitor sign-in", category: "Security" },
+  { sku: "SVC-PCI", name: "PCI readiness review & card-payment network segmentation", category: "Services", unit: "site" },
+  { sku: "LAB-NET", name: "Network install & configuration labor", category: "Labor", unit: "hr" },
+  { sku: "LAB-LV", name: "Security / low-voltage install labor", category: "Labor", unit: "hr" },
+  { sku: "LAB-PM", name: "Project management, documentation & cutover", category: "Labor", unit: "hr" },
+  { sku: "BY-CARRIER", name: "Main internet circuit repair or replacement (by carrier)", category: "By others", unit: "site" },
+  { sku: "BY-CELL-PLAN", name: "Cellular data plan for failover (by carrier)", category: "By others", unit: "site" },
+  { sku: "BY-EM-LIGHTING", name: "Emergency lighting (by facilities / electrician)", category: "By others", unit: "site" },
+  { sku: "BY-GENERATOR", name: "Generator / extended backup power (review with client)", category: "By others", unit: "site" },
 ];
 
 export async function ensureCatalog(organizationId: string) {
@@ -94,7 +88,7 @@ export async function ensureCatalog(organizationId: string) {
           category: c.category,
           vendor: c.vendor ?? null,
           unit: c.unit ?? "ea",
-          priceCents: c.price == null ? null : Math.round(c.price * 100),
+          priceCents: null,
           recurring: !!c.recurring,
           qbItem: c.sku,
           sortOrder: DEFAULT_CATALOG.indexOf(c),
@@ -343,7 +337,8 @@ export type ScopeLineView = {
   unit: string;
   qty: number;
   priceCents: number | null;
-  priceOverridden: boolean;
+  /** ISO time the price was entered; prices from an earlier day need re-confirming. */
+  pricedAt: string | null;
   recurring: boolean;
   qbItem: string;
   reason: string | null;
@@ -356,6 +351,8 @@ export type ScopeTotals = {
   oneTimeCents: number;
   annualCents: number;
   unpriced: number;
+  /** Priced before today — confirm before producing the sales order. */
+  stalePrices: number;
   laborHours: number;
   cablingDrops: number;
   /** Two-tech crew, 8-hour days, ~1 h per cable drop. */
@@ -382,8 +379,8 @@ export function viewLines(
         category: c?.category ?? "Other",
         unit: c?.unit ?? "ea",
         qty: Number(r.qty),
-        priceCents: r.priceCents ?? c?.priceCents ?? null,
-        priceOverridden: r.priceCents != null,
+        priceCents: r.priceCents,
+        pricedAt: r.pricedAt?.toISOString() ?? null,
         recurring: c?.recurring ?? false,
         qbItem: c?.qbItem || r.sku,
         reason: r.reason,
@@ -406,7 +403,8 @@ export function scopeTotals(lines: ScopeLineView[]): ScopeTotals {
   return {
     oneTimeCents: sum(on.filter((l) => !l.recurring)),
     annualCents: sum(on.filter((l) => l.recurring)),
-    unpriced: on.filter((l) => l.priceCents == null).length,
+    unpriced: on.filter((l) => l.category !== "By others" && l.priceCents == null).length,
+    stalePrices: on.filter((l) => l.category !== "By others" && l.priceCents != null && !pricedToday(l.pricedAt)).length,
     laborHours,
     cablingDrops,
     crewDays: Math.ceil(crewHours / 16),
@@ -467,6 +465,13 @@ export async function syncScope(opts: { organizationId: string; projectId: strin
     }
   }
   return { added, updated, removed };
+}
+
+/** Prices are only trusted on the day they were entered (US Central). */
+export function pricedToday(iso: string | null) {
+  if (!iso) return false;
+  const day = (d: Date) => d.toLocaleDateString("en-US", { timeZone: "America/Chicago" });
+  return day(new Date(iso)) === day(new Date());
 }
 
 export function money(cents: number) {

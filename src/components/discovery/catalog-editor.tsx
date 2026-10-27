@@ -14,7 +14,6 @@ export type CatalogRow = {
   category: string;
   vendor: string | null;
   unit: string;
-  price: number | null;
   recurring: boolean;
   qbItem: string | null;
   active: boolean;
@@ -47,28 +46,24 @@ export function CatalogEditor({ items, categories, canEdit }: { items: CatalogRo
 function Item({ item, categories, canEdit }: { item: CatalogRow; categories: readonly string[]; canEdit: boolean }) {
   const router = useRouter();
   const [pending, start] = useTransition();
-  const [f, setF] = useState({ ...item, priceText: item.price == null ? "" : String(item.price) });
+  const [f, setF] = useState(item);
   const dirty =
     f.name !== item.name ||
     f.category !== item.category ||
     (f.vendor ?? "") !== (item.vendor ?? "") ||
     f.unit !== item.unit ||
-    f.priceText !== (item.price == null ? "" : String(item.price)) ||
     f.recurring !== item.recurring ||
     (f.qbItem ?? "") !== (item.qbItem ?? "") ||
     f.active !== item.active;
 
   const save = () =>
     start(async () => {
-      const p = f.priceText.trim() === "" ? null : Number(f.priceText.replace(/[$,]/g, ""));
-      if (p != null && (!Number.isFinite(p) || p < 0)) return void toast.error("Price must be a number");
       const r = await updateCatalogItem({
         itemId: item.id,
         name: f.name,
         category: f.category as Category,
         vendor: f.vendor,
         unit: f.unit,
-        price: p,
         recurring: f.recurring,
         qbItem: f.qbItem,
         active: f.active,
@@ -94,17 +89,7 @@ function Item({ item, categories, canEdit }: { item: CatalogRow; categories: rea
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <label className="flex items-center gap-1 text-xs text-muted-foreground">
-          $
-          <input
-            inputMode="decimal"
-            value={f.priceText}
-            disabled={!canEdit}
-            placeholder="price?"
-            onChange={(e) => setF({ ...f, priceText: e.target.value })}
-            aria-label="Price"
-            className={cn(input, "w-24 text-right tabular-nums", f.priceText === "" && "border-amber-500/60")}
-          />
-          /
+          per
           <input value={f.unit} disabled={!canEdit} onChange={(e) => setF({ ...f, unit: e.target.value })} aria-label="Unit" className={cn(input, "w-14")} />
         </label>
         <input
@@ -140,21 +125,19 @@ function Item({ item, categories, canEdit }: { item: CatalogRow; categories: rea
 function NewItem({ categories }: { categories: readonly string[] }) {
   const router = useRouter();
   const [pending, start] = useTransition();
-  const blank = { sku: "", name: "", category: categories[0], unit: "ea", price: "", recurring: false };
+  const blank = { sku: "", name: "", category: categories[0], unit: "ea", recurring: false };
   const [f, setF] = useState(blank);
   return (
     <form
-      className="grid gap-2 rounded-2xl border border-dashed border-border p-4 sm:grid-cols-[8rem_1fr_9rem_6rem_5rem_auto_auto] sm:items-center"
+      className="grid gap-2 rounded-2xl border border-dashed border-border p-4 sm:grid-cols-[8rem_1fr_9rem_5rem_auto_auto] sm:items-center"
       onSubmit={(e) => {
         e.preventDefault();
         start(async () => {
-          const p = f.price.trim() === "" ? null : Number(f.price.replace(/[$,]/g, ""));
           const r = await addCatalogItem({
             sku: f.sku,
             name: f.name,
             category: f.category as Category,
             unit: f.unit,
-            price: p != null && Number.isFinite(p) ? p : null,
             recurring: f.recurring,
             active: true,
           });
@@ -171,7 +154,6 @@ function NewItem({ categories }: { categories: readonly string[] }) {
           <option key={c}>{c}</option>
         ))}
       </select>
-      <input inputMode="decimal" value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} placeholder="$ price" aria-label="Price" className={input} />
       <input value={f.unit} onChange={(e) => setF({ ...f, unit: e.target.value })} aria-label="Unit" className={input} />
       <label className="flex items-center gap-1 text-xs">
         <input type="checkbox" checked={f.recurring} onChange={(e) => setF({ ...f, recurring: e.target.checked })} /> yearly

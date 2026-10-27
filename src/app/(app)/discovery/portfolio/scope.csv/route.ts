@@ -28,9 +28,20 @@ export async function GET(req: Request) {
   const { assessments } = await loadPortfolio(ctx.organization.id, ids);
   const { date, mmdd } = qbDate();
   const rows = [ORDER_HEADER];
+  const missing: string[] = [];
   for (const a of [...assessments].sort((x, y) => x.site.localeCompare(y.site))) {
-    const { lines } = await loadScope(ctx.organization.id, a.projectId);
+    const { lines, totals } = await loadScope(ctx.organization.id, a.projectId);
+    if (!lines.length) continue;
+    if (totals.unpriced) {
+      missing.push(`${a.site} (${totals.unpriced})`);
+      continue;
+    }
     rows.push(...orderRows({ customer: baseCustomer(a.customer), site: a.site, lines, date, mmdd }).map((r) => r.map(String)));
   }
+  if (missing.length)
+    return new Response(`Prices are set on each sales order. These scopes still have unpriced lines: ${missing.join(", ")}.`, {
+      status: 409,
+      headers: { "content-type": "text/plain; charset=utf-8" },
+    });
   return csvResponse(toCsv(rows), `sales-orders-all-sites-${mmdd}.csv`);
 }

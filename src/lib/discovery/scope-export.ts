@@ -5,10 +5,10 @@
  * these are laid out for an importer (Transaction Pro, SaaSAnt) — one row
  * per line, RefNumber groups a site's lines into one order. Desktop limits
  * are respected: RefNumber 11 chars, Customer:Job segments 41, item names
- * 31, dates MM/DD/YYYY. Unpriced lines go out with a blank rate so they're
- * caught on review rather than sold at $0.
+ * 31, dates MM/DD/YYYY. Prices come from the scope lines, entered for this
+ * order — the routes refuse to export while any line is unpriced.
  *
- * Items: columns match Lists › Add/Edit Multiple List Entries, so the price
+ * Items: columns match Lists › Add/Edit Multiple List Entries, so the item
  * list can be pasted straight in before the first order is imported.
  */
 import "server-only";
@@ -53,7 +53,7 @@ export function orderRows(opts: { customer: string; site: string; lines: ScopeLi
   return opts.lines
     .filter((l) => l.included && l.category !== "By others" && l.qty > 0)
     .map((l) => {
-      const rate = l.priceCents == null ? null : l.priceCents / 100;
+      const rate = (l.priceCents ?? 0) / 100;
       return [
         no,
         who,
@@ -61,9 +61,9 @@ export function orderRows(opts: { customer: string; site: string; lines: ScopeLi
         l.qbItem.slice(0, 31),
         `${l.name}${l.notes ? ` — ${l.notes}` : ""}`,
         l.qty,
-        rate == null ? "" : rate.toFixed(2),
-        rate == null ? "" : (Math.round(l.qty * l.priceCents!) / 100).toFixed(2),
-        rate == null ? "PRICE NEEDED" : l.recurring ? "Yearly subscription" : "",
+        rate.toFixed(2),
+        (Math.round(l.qty * (l.priceCents ?? 0)) / 100).toFixed(2),
+        l.recurring ? "Yearly subscription" : "",
       ];
     });
 }
@@ -71,13 +71,14 @@ export function orderRows(opts: { customer: string; site: string; lines: ScopeLi
 /**
  * Items for Add/Edit Multiple List Entries (pick the Service or
  * Non-inventory Parts view, then paste that type's rows). Income Account
- * is left for you to fill — it must match your chart of accounts.
+ * is left for you to fill — it must match your chart of accounts. No sales
+ * price: it's set on each order.
  */
 export function catalogRows(items: DiscoveryCatalogItem[]) {
   const service = (i: DiscoveryCatalogItem) =>
     ["Labor", "Services"].includes(i.category) || i.unit === "drop" || i.sku.startsWith("ELEC-");
   return [
-    ["Item Name", "Item Type", "Description", "Sales Price", "Income Account"],
+    ["Item Name", "Item Type", "Description", "Income Account"],
     ...items
       .filter((i) => i.active && i.category !== "By others")
       .sort((a, b) => Number(service(a)) - Number(service(b)))
@@ -85,7 +86,6 @@ export function catalogRows(items: DiscoveryCatalogItem[]) {
         (i.qbItem || i.sku).slice(0, 31),
         service(i) ? "Service" : "Non-inventory Part",
         i.name,
-        i.priceCents == null ? "" : (i.priceCents / 100).toFixed(2),
         "",
       ]),
   ];

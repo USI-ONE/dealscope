@@ -25,6 +25,12 @@ export async function GET(_req: Request, ctxArg: { params: Promise<{ id: string 
     }),
   ]);
   const name = site || project.name;
+  const unpriced = lines.filter((l) => l.included && l.category !== "By others" && l.priceCents == null).length;
+  if (unpriced)
+    return new Response(`${unpriced} line(s) on the ${name} scope have no price. Prices are set on each sales order — enter them on the Install scope tab, then export.`, {
+      status: 409,
+      headers: { "content-type": "text/plain; charset=utf-8" },
+    });
   const customer = baseCustomer(typeof client?.value?.v === "string" ? client.value.v : "");
   const { date, mmdd } = qbDate();
   return csvResponse(toCsv([ORDER_HEADER, ...orderRows({ customer, site: name, lines, date, mmdd })]), `sales-order-${slug(name)}.csv`);
