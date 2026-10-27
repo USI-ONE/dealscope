@@ -3,7 +3,7 @@ import { requireRole } from "@/lib/auth-helpers";
 import { baseCustomer } from "@/lib/discovery/assessment";
 import { getProject, walkSiteName } from "@/lib/discovery/load";
 import { loadScope } from "@/lib/discovery/scope";
-import { csvResponse, ORDER_HEADER, orderRows, slug, toCsv } from "@/lib/discovery/scope-export";
+import { csvResponse, ORDER_HEADER, orderRows, qbDate, slug, toCsv } from "@/lib/discovery/scope-export";
 import { db } from "@/db";
 import { discoveryAnswers } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
@@ -26,6 +26,6 @@ export async function GET(_req: Request, ctxArg: { params: Promise<{ id: string 
   ]);
   const name = site || project.name;
   const customer = baseCustomer(typeof client?.value?.v === "string" ? client.value.v : "");
-  const date = new Date().toISOString().slice(0, 10);
-  return csvResponse(toCsv([ORDER_HEADER, ...orderRows({ customer, site: name, lines, date })]), `scope-${slug(name)}-${date}.csv`);
+  const { date, mmdd } = qbDate();
+  return csvResponse(toCsv([ORDER_HEADER, ...orderRows({ customer, site: name, lines, date, mmdd })]), `sales-order-${slug(name)}.csv`);
 }

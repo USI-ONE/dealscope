@@ -32,7 +32,7 @@ export default async function CatalogPage() {
           </p>
         </div>
         <a href="/discovery/catalog/catalog.csv" className="inline-flex h-10 items-center gap-1.5 rounded-full border border-border px-4 text-sm font-medium">
-          <Download className="size-4" /> QuickBooks items CSV
+          <Download className="size-4" /> QuickBooks Desktop items
         </a>
       </div>
       <CatalogEditor

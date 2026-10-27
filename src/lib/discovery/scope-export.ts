@@ -1,8 +1,15 @@
 /**
- * QuickBooks CSV exports for install scopes: sales-order lines (one site
- * or many) and the price list as Products & Services. Column names follow
- * QuickBooks' import templates; unpriced lines go out with a blank rate so
- * they're caught on review rather than sold at $0.
+ * QuickBooks Desktop CSV exports for install scopes.
+ *
+ * Sales orders: Desktop has no built-in CSV import for transactions, so
+ * these are laid out for an importer (Transaction Pro, SaaSAnt) — one row
+ * per line, RefNumber groups a site's lines into one order. Desktop limits
+ * are respected: RefNumber 11 chars, Customer:Job segments 41, item names
+ * 31, dates MM/DD/YYYY. Unpriced lines go out with a blank rate so they're
+ * caught on review rather than sold at $0.
+ *
+ * Items: columns match Lists › Add/Edit Multiple List Entries, so the price
+ * list can be pasted straight in before the first order is imported.
  */
 import "server-only";
 import type { DiscoveryCatalogItem } from "@/db/schema";
@@ -28,12 +35,21 @@ export function slug(s: string) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
 }
 
-export const ORDER_HEADER = ["SalesOrderNo", "Customer", "OrderDate", "Item", "Description", "Qty", "Rate", "Amount", "Class", "Memo"];
+export const ORDER_HEADER = ["RefNumber", "Customer", "TxnDate", "Item", "Description", "Quantity", "Rate", "Amount", "Memo"];
 
-/** Sales-order rows for one site. Customer is "Client:Site" (QuickBooks sub-customer). */
-export function orderRows(opts: { customer: string; site: string; lines: ScopeLineView[]; date: string }) {
-  const no = `SO-${slug(opts.site).toUpperCase().replace(/-/g, "").slice(0, 12)}`;
-  const who = opts.customer ? `${opts.customer}:${opts.site}` : opts.site;
+/** Today as QuickBooks Desktop wants it, plus a compact MMDD for order numbers. */
+export function qbDate(d = new Date()) {
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return { date: `${mm}/${dd}/${d.getFullYear()}`, mmdd: `${mm}${dd}` };
+}
+
+/** Sales-order rows for one site. Customer is "Client:Site" (a Desktop customer:job). */
+export function orderRows(opts: { customer: string; site: string; lines: ScopeLineView[]; date: string; mmdd: string }) {
+  // e.g. "RUSSEL-1027" — 11 characters, Desktop's RefNumber limit.
+  const no = `${opts.site.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 6)}-${opts.mmdd}`;
+  const seg = (s: string) => s.replace(/:/g, " ").trim().slice(0, 41);
+  const who = opts.customer ? `${seg(opts.customer)}:${seg(opts.site)}` : seg(opts.site);
   return opts.lines
     .filter((l) => l.included && l.category !== "By others" && l.qty > 0)
     .map((l) => {
@@ -42,30 +58,35 @@ export function orderRows(opts: { customer: string; site: string; lines: ScopeLi
         no,
         who,
         opts.date,
-        l.qbItem,
+        l.qbItem.slice(0, 31),
         `${l.name}${l.notes ? ` — ${l.notes}` : ""}`,
         l.qty,
         rate == null ? "" : rate.toFixed(2),
         rate == null ? "" : (Math.round(l.qty * l.priceCents!) / 100).toFixed(2),
-        l.category,
         rate == null ? "PRICE NEEDED" : l.recurring ? "Yearly subscription" : "",
       ];
     });
 }
 
-/** QuickBooks Products & Services import. */
+/**
+ * Items for Add/Edit Multiple List Entries (pick the Service or
+ * Non-inventory Parts view, then paste that type's rows). Income Account
+ * is left for you to fill — it must match your chart of accounts.
+ */
 export function catalogRows(items: DiscoveryCatalogItem[]) {
+  const service = (i: DiscoveryCatalogItem) =>
+    ["Labor", "Services"].includes(i.category) || i.unit === "drop" || i.sku.startsWith("ELEC-");
   return [
-    ["Product/Service Name", "Sales Description", "SKU", "Type", "Sales Price / Rate", "Category"],
+    ["Item Name", "Item Type", "Description", "Sales Price", "Income Account"],
     ...items
       .filter((i) => i.active && i.category !== "By others")
+      .sort((a, b) => Number(service(a)) - Number(service(b)))
       .map((i) => [
-        i.qbItem || i.sku,
+        (i.qbItem || i.sku).slice(0, 31),
+        service(i) ? "Service" : "Non-inventory Part",
         i.name,
-        i.sku,
-        ["Labor", "Services"].includes(i.category) || i.unit === "drop" || i.sku.startsWith("ELEC-") ? "Service" : "Non-inventory",
         i.priceCents == null ? "" : (i.priceCents / 100).toFixed(2),
-        i.category,
+        "",
       ]),
   ];
 }

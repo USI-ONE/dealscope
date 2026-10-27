@@ -6,7 +6,7 @@ import { requireRole } from "@/lib/auth-helpers";
 import { loadPortfolio } from "@/lib/discovery/assessment-store";
 import { baseCustomer } from "@/lib/discovery/assessment";
 import { loadScope } from "@/lib/discovery/scope";
-import { csvResponse, ORDER_HEADER, orderRows, toCsv } from "@/lib/discovery/scope-export";
+import { csvResponse, ORDER_HEADER, orderRows, qbDate, toCsv } from "@/lib/discovery/scope-export";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -26,11 +26,11 @@ export async function GET(req: Request) {
     );
   const ids = requested.length ? walks.map((w) => w.id) : walks.filter((w) => w.status === "review" || w.status === "complete").map((w) => w.id);
   const { assessments } = await loadPortfolio(ctx.organization.id, ids);
-  const date = new Date().toISOString().slice(0, 10);
+  const { date, mmdd } = qbDate();
   const rows = [ORDER_HEADER];
   for (const a of [...assessments].sort((x, y) => x.site.localeCompare(y.site))) {
     const { lines } = await loadScope(ctx.organization.id, a.projectId);
-    rows.push(...orderRows({ customer: baseCustomer(a.customer), site: a.site, lines, date }).map((r) => r.map(String)));
+    rows.push(...orderRows({ customer: baseCustomer(a.customer), site: a.site, lines, date, mmdd }).map((r) => r.map(String)));
   }
-  return csvResponse(toCsv(rows), `install-scope-all-sites-${date}.csv`);
+  return csvResponse(toCsv(rows), `sales-orders-all-sites-${mmdd}.csv`);
 }

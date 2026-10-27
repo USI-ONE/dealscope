@@ -56,7 +56,7 @@ export default async function ScopePage({ params }: { params: Promise<{ id: stri
                 href={`/discovery/${project.id}/scope.csv`}
                 className="inline-flex h-10 items-center gap-1.5 rounded-full border border-border px-4 text-sm font-medium"
               >
-                <Download className="size-4" /> QuickBooks CSV
+                <Download className="size-4" /> QuickBooks Desktop sales order
               </a>
             )}
             <PrintButton />

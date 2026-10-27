@@ -302,7 +302,7 @@ export default async function PortfolioPage({ searchParams }: { searchParams: Pr
                     href={`/discovery/portfolio/scope.csv?ids=${ids.join(",")}`}
                     className="inline-flex h-9 items-center rounded-full border border-border px-3 text-sm font-medium"
                   >
-                    QuickBooks CSV (all sites)
+                    QuickBooks Desktop sales orders (all sites)
                   </a>
                 </div>
               )}

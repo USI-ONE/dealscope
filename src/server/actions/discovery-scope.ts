@@ -151,7 +151,8 @@ const catalogFields = z.object({
   unit: z.string().trim().min(1).max(20),
   price: cents.nullable(),
   recurring: z.boolean(),
-  qbItem: z.string().trim().max(100).nullable().optional(),
+  /** QuickBooks Desktop item names are capped at 31 characters. */
+  qbItem: z.string().trim().max(31, "QuickBooks Desktop item names are 31 characters max").nullable().optional(),
   active: z.boolean(),
 });
 
@@ -171,7 +172,7 @@ export const updateCatalogItem = authedAction
   });
 
 export const addCatalogItem = authedAction
-  .schema(catalogFields.extend({ sku: z.string().trim().min(2).max(80).regex(/^[A-Za-z0-9._-]+$/, "Letters, numbers, dot, dash or underscore") }))
+  .schema(catalogFields.extend({ sku: z.string().trim().min(2).max(31).regex(/^[A-Za-z0-9._-]+$/, "Letters, numbers, dot, dash or underscore") }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("manage", "project");
     const { price, sku, ...rest } = parsedInput;

@@ -111,6 +111,7 @@ function Item({ item, categories, canEdit }: { item: CatalogRow; categories: rea
           value={f.qbItem ?? ""}
           disabled={!canEdit}
           placeholder="QuickBooks item"
+          maxLength={31}
           onChange={(e) => setF({ ...f, qbItem: e.target.value })}
           aria-label="QuickBooks item name"
           className={cn(input, "w-40")}
