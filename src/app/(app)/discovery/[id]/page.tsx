@@ -67,10 +67,10 @@ export default async function DiscoveryHubPage({ params }: { params: Promise<{ i
     return p && p.done < p.total;
   });
 
-  const risks = recordRows.filter((r) => r.tableKey === "risks");
+  const risks = assessment.risks;
   const riskCounts = ["Blocker", "High", "Medium", "Low"].map((lvl) => ({
     lvl,
-    n: risks.filter((r) => r.data.level === lvl).length,
+    n: risks.filter((r) => r.level === lvl).length,
   }));
 
   // Everything captured, flattened for on-device search.
@@ -224,7 +224,7 @@ export default async function DiscoveryHubPage({ params }: { params: Promise<{ i
 
       {risks.length > 0 && (
         <Link
-          href={`/discovery/${project.id}/s/risks`}
+          href={`/discovery/${project.id}/assessment`}
           className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm"
         >
           <AlertTriangle className="size-5 shrink-0 text-amber-500" />

@@ -163,7 +163,8 @@ export type SiteAssessment = {
   partial: boolean;
   resolvedCount: number;
   findingCount: number;
-  risks: Array<{ level: string; risk: string; area: string }>;
+  /** Logged on the walk ("walk") plus every open scored finding ("scorecard"). */
+  risks: Array<{ level: string; risk: string; area: string; source: "walk" | "scorecard" }>;
   workItems: Array<{ id: string; action: string; kind: string; title: string; notes: string }>;
   drops: number;
   followUps: number;
@@ -174,6 +175,10 @@ export type SiteAssessment = {
 };
 
 const LEVELS = ["Blocker", "High", "Medium", "Low"];
+/** Risk level for a scored finding, by how many points it costs. */
+function riskLevel(points: number) {
+  return points >= 30 ? "High" : points >= 15 ? "Medium" : "Low";
+}
 /** Best possible score while evidence is still missing — a B, never an A. */
 const PARTIAL_CAP = 89;
 const WORK_TABLES = ["aps", "access_switches", "cameras", "doors", "printers", "rooms", "servers", "workstations", "idfs"];
@@ -342,9 +347,18 @@ export function assessSite(project: DiscoveryProject, data: ProjectData, resolve
   const baseScore = Math.min(overallCap, avg(graded.map((a) => a.baseScore)));
   const allFindings = scored.flatMap((a) => a.findings);
 
-  const risks = records("risks")
-    .map((r) => ({ level: r.data.level ?? "", risk: r.data.risk ?? "", area: r.data.area ?? "" }))
-    .sort((a, b) => LEVELS.indexOf(a.level) - LEVELS.indexOf(b.level));
+  const byLevel = (a: { level: string }, b: { level: string }) => LEVELS.indexOf(a.level) - LEVELS.indexOf(b.level);
+  const logged = records("risks")
+    .map((r) => ({ level: r.data.level ?? "", risk: r.data.risk ?? "", area: r.data.area ?? "", source: "walk" as const }))
+    .sort(byLevel);
+  // Every open finding is a risk too, so a site never shows "no risks" just
+  // because nobody typed them into the walk's risk list.
+  const derived = scored.flatMap((a) =>
+    a.findings
+      .filter((f) => !f.resolved)
+      .map((f) => ({ level: riskLevel(f.points), risk: f.text, area: a.title, source: "scorecard" as const })),
+  );
+  const risks = [...logged, ...derived].sort(byLevel);
 
   const workItems = recordRows
     .filter((r) => WORK_TABLES.includes(r.tableKey) && r.data.keep && r.data.keep !== "Keep")
@@ -385,7 +399,7 @@ export function assessSite(project: DiscoveryProject, data: ProjectData, resolve
     }),
     "",
     "Risks logged on the walk:",
-    ...(risks.length ? risks.map((r) => `- [${r.level}] ${r.risk} (${r.area})`) : ["- none"]),
+    ...(logged.length ? logged.map((r) => `- [${r.level}] ${r.risk} (${r.area})`) : ["- none"]),
     "",
     "Equipment flagged on the walk:",
     ...(workItems.length ? workItems.map((w) => `- ${w.action}: ${w.kind} ${w.title}${w.notes ? ` — ${w.notes}` : ""}`) : ["- none"]),
