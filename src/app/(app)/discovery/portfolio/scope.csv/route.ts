@@ -15,7 +15,7 @@ export async function GET(req: Request) {
   const ctx = await requireRole("member");
   const requested = (new URL(req.url).searchParams.get("ids") ?? "").split(",").filter(Boolean);
   const walks = await db
-    .select({ id: discoveryProjects.id, status: discoveryProjects.status })
+    .select({ id: discoveryProjects.id })
     .from(discoveryProjects)
     .where(
       and(
@@ -24,7 +24,7 @@ export async function GET(req: Request) {
         requested.length ? inArray(discoveryProjects.id, requested) : undefined,
       ),
     );
-  const ids = requested.length ? walks.map((w) => w.id) : walks.filter((w) => w.status === "review" || w.status === "complete").map((w) => w.id);
+  const ids = walks.map((w) => w.id);
   const { assessments } = await loadPortfolio(ctx.organization.id, ids);
   const { date, mmdd } = qbDate();
   const rows = [ORDER_HEADER];

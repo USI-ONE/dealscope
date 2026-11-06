@@ -4,7 +4,7 @@
  * Grade grid (site × area), the findings that repeat across branches,
  * totals, and a Claude-written summary with company-wide standards and a
  * rollout order. Sites are chosen in the URL (?ids=a,b,c); by default it
- * takes every walk that's in review or complete.
+ * takes every active (unarchived) walk.
  */
 import Link from "next/link";
 import { and, eq, isNull } from "drizzle-orm";
@@ -36,9 +36,7 @@ export default async function PortfolioPage({ searchParams }: { searchParams: Pr
     .orderBy(discoveryProjects.name);
   const valid = new Set(walks.map((w) => w.id));
   const requested = (idsParam ?? "").split(",").filter((x) => valid.has(x));
-  const ids = requested.length
-    ? requested
-    : walks.filter((w) => w.status === "review" || w.status === "complete").map((w) => w.id);
+  const ids = requested.length ? requested : walks.map((w) => w.id);
 
   const { sites, assessments, narrative, customer } = await loadPortfolio(ctx.organization.id, ids);
   const n = narrative?.content;

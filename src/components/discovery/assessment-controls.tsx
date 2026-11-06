@@ -57,13 +57,18 @@ export function PortfolioPicker({
   const router = useRouter();
   const [ids, setIds] = useState(new Set(selected));
   const [open, setOpen] = useState(selected.length < 2);
-  const toggle = (id: string) =>
-    setIds((s) => {
-      const n = new Set(s);
-      if (n.has(id)) n.delete(id);
-      else n.add(id);
-      return n;
-    });
+  // Every change applies straight away, so the page (and "Rewrite summary")
+  // always works on the sites that are ticked.
+  const apply = (next: Set<string>) => {
+    setIds(next);
+    if (next.size >= 2) router.replace(`/discovery/portfolio?ids=${[...next].join(",")}`, { scroll: false });
+  };
+  const toggle = (id: string) => {
+    const n = new Set(ids);
+    if (n.has(id)) n.delete(id);
+    else n.add(id);
+    apply(n);
+  };
 
   if (!open)
     return (
@@ -78,7 +83,17 @@ export function PortfolioPicker({
 
   return (
     <div className="space-y-3 rounded-2xl border border-border bg-card p-4 shadow-sm print:hidden">
-      <p className="text-sm font-semibold">Sites in this portfolio</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-semibold">Sites in this portfolio</p>
+        <button
+          type="button"
+          onClick={() => apply(new Set(options.map((o) => o.id)))}
+          disabled={ids.size === options.length}
+          className="text-sm font-medium text-primary disabled:text-muted-foreground"
+        >
+          Select all
+        </button>
+      </div>
       <div className="grid gap-1.5 sm:grid-cols-2">
         {options.map((o) => (
           <label key={o.id} className="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-2 active:bg-accent">
@@ -92,19 +107,12 @@ export function PortfolioPicker({
         <button
           type="button"
           disabled={ids.size < 2}
-          onClick={() => {
-            setOpen(false);
-            router.push(`/discovery/portfolio?ids=${[...ids].join(",")}`);
-          }}
+          onClick={() => setOpen(false)}
           className="h-10 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-50"
         >
-          Show {ids.size} sites
+          Done — {ids.size} sites
         </button>
-        {selected.length >= 2 && (
-          <button type="button" onClick={() => setOpen(false)} className="h-10 rounded-full px-4 text-sm text-muted-foreground">
-            Cancel
-          </button>
-        )}
+        {ids.size < 2 && <span className="self-center text-sm text-muted-foreground">Pick at least two.</span>}
       </div>
     </div>
   );
