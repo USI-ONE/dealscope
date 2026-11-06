@@ -39,7 +39,7 @@ export const generateSiteAssessment = authedAction
   });
 
 export const generatePortfolioAssessment = authedAction
-  .schema(z.object({ projectIds: z.array(z.string().uuid()).min(2).max(60) }))
+  .schema(z.object({ projectIds: z.array(z.string().uuid()).min(2).max(60), guidance: z.string().max(1500).optional() }))
   .action(async ({ parsedInput, ctx }) => {
     await authorize("update", "project");
     await aiGuard(ctx);
@@ -47,13 +47,15 @@ export const generatePortfolioAssessment = authedAction
 
     const { assessments, key, hash, customer } = await loadPortfolio(ctx.organization.id, parsedInput.projectIds);
     if (assessments.length < 2) throw new PublicError("Pick at least two site walks");
-    const narrative = await writePortfolioNarrative(customer, portfolioFacts(assessments));
+    const guidance = parsedInput.guidance?.trim() || undefined;
+    const narrative = await writePortfolioNarrative(customer, portfolioFacts(assessments), guidance);
     await saveReport({
       organizationId: ctx.organization.id,
       kind: "portfolio",
       key,
       sourceHash: hash,
-      content: narrative,
+      // Guidance is kept with the summary so a rewrite starts from it.
+      content: { ...narrative, guidance },
       model: ASSESSMENT_MODEL,
       membershipId: ctx.membership.id,
     });

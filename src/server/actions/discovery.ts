@@ -490,6 +490,25 @@ export const setPhotoInReport = authedAction
     return { ok: true };
   });
 
+/** Feature / un-feature a photo in the portfolio executive summary (all copies of the file). */
+export const setPhotoInPortfolio = authedAction
+  .schema(z.object({ projectId: z.string().uuid(), photoId: z.string().uuid(), inPortfolio: z.boolean() }))
+  .action(async ({ parsedInput, ctx }) => {
+    await authorize("update", "project");
+    const p = await assertProject(parsedInput.projectId, ctx.organization.id);
+    const photo = await db.query.discoveryPhotos.findFirst({
+      where: and(eq(discoveryPhotos.id, parsedInput.photoId), eq(discoveryPhotos.projectId, p.id)),
+      columns: { url: true },
+    });
+    if (!photo) throw new PublicError("Photo not found");
+    await db
+      .update(discoveryPhotos)
+      .set({ inPortfolio: parsedInput.inPortfolio, updatedAt: new Date() })
+      .where(and(eq(discoveryPhotos.projectId, p.id), eq(discoveryPhotos.url, photo.url)));
+    revalidatePath("/discovery/portfolio");
+    return { ok: true };
+  });
+
 export const updateDiscoveryPhoto = authedAction
   .schema(
     z.object({

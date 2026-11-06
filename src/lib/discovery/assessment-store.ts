@@ -35,8 +35,38 @@ export function portfolioKey(projectIds: string[]) {
   return createHash("sha256").update([...projectIds].sort().join(",")).digest("hex").slice(0, 24);
 }
 
+/** Sites with an open finding whose id (and optionally text) matches. */
+function sitesWith(sites: SiteAssessment[], id: string, text?: RegExp) {
+  return sites
+    .filter((s) => s.areas.some((a) => a.findings.some((f) => f.id === id && !f.resolved && (!text || text.test(f.text)))))
+    .map((s) => s.site);
+}
+
+/**
+ * Physical security across every branch, stated once up front so the
+ * portfolio summary can treat it as the company-wide issue it is.
+ */
+function securityRollup(sites: SiteAssessment[]) {
+  const line = (label: string, names: string[]) => (names.length ? [`- ${label} (${names.length} of ${sites.length}): ${names.join(", ")}`] : []);
+  const graded = sites.flatMap((s) => {
+    const a = s.areas.find((x) => x.key === "security");
+    return a?.assessed ? [`${s.site} ${a.grade} ${a.score}`] : [];
+  });
+  return [
+    "## Cross-site physical security",
+    ...line("Camera systems installed but not working", sitesWith(sites, "security.cameras", /not working/)),
+    ...line("No security cameras at all", sitesWith(sites, "security.cameras", /^No security cameras/)),
+    ...line("Old analog cameras that can't be viewed centrally", sitesWith(sites, "security.cameras", /analog/i)),
+    ...line("No intrusion alarm", sitesWith(sites, "security.alarm", /^No intrusion alarm/)),
+    ...line("Alarm monitoring not confirmed", sitesWith(sites, "security.alarm", /monitoring/)),
+    ...line("Physical keys only — no card access", sitesWith(sites, "security.access")),
+    ...line("No visitor logging", sitesWith(sites, "security.visitors")),
+    ...(graded.length ? [`- Physical security grades: ${graded.join(", ")}`] : []),
+  ].join("\n");
+}
+
 export function portfolioFacts(sites: SiteAssessment[]) {
-  return sites.map((s) => `### ${s.site}\n${s.facts}`).join("\n\n");
+  return [securityRollup(sites), ...sites.map((s) => `### ${s.site}\n${s.facts}`)].join("\n\n");
 }
 
 export function portfolioHash(sites: SiteAssessment[]) {

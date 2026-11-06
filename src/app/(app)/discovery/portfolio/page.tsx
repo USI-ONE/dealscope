@@ -15,9 +15,12 @@ import { requireRole } from "@/lib/auth-helpers";
 import { isAiConfigured } from "@/lib/ai/anthropic";
 import { AREAS, GRADE_STYLE, gradeBadge, NOT_ASSESSED_STYLE, toGrade } from "@/lib/discovery/assessment";
 import { loadPortfolio } from "@/lib/discovery/assessment-store";
-import { loadScope, money } from "@/lib/discovery/scope";
+import { photoUrl } from "@/lib/discovery/paths";
+import { photoSrc } from "@/lib/discovery/photo-variants";
+import { recordTitle, templateIndex } from "@/lib/discovery/templates";
+import { KeyPhotoPicker, type PickerSite } from "@/components/discovery/key-photo-picker";
 import { PrintButton } from "@/components/discovery/print-button";
-import { GenerateNarrativeButton, PortfolioPicker } from "@/components/discovery/assessment-controls";
+import { PortfolioPicker, PortfolioSummaryControls } from "@/components/discovery/assessment-controls";
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -56,12 +59,30 @@ export default async function PortfolioPage({ searchParams }: { searchParams: Pr
     for (const area of a.areas) for (const f of area.findings) common.set(f.text, (common.get(f.text) ?? new Set()).add(a.site));
   const repeated = [...common.entries()].filter(([, s]) => s.size >= 2).sort((x, y) => y[1].size - x[1].size).slice(0, 10);
 
-  // Install scope per site (built on each walk's Install scope tab).
-  const scopes = await Promise.all(
-    assessments.map(async (a) => ({ a, ...(await loadScope(ctx.organization.id, a.projectId)) })),
-  );
-  const scoped = scopes.filter((x) => x.lines.length);
-  const sum = (f: (t: (typeof scopes)[number]["totals"]) => number) => scoped.reduce((s, x) => s + f(x.totals), 0);
+  // Key photos for the executive summary: one per file, labelled by caption,
+  // question or inventory item.
+  const photoSites: PickerSite[] = sites.map(({ assessment: a, data }) => {
+    const idx = templateIndex(data.template);
+    const recordById = new Map(data.recordRows.map((r) => [r.id, r]));
+    const seen = new Set<string>();
+    return {
+      projectId: a.projectId,
+      site: a.site,
+      photos: data.photoRows
+        .filter((p) => !p.questionKey?.startsWith("task.") && !seen.has(p.url) && seen.add(p.url))
+        .sort((x, y) => (x.takenAt?.getTime() ?? 0) - (y.takenAt?.getTime() ?? 0))
+        .map((p) => {
+          const r = p.recordId ? recordById.get(p.recordId) : undefined;
+          const t = r ? idx.tables.get(r.tableKey) : undefined;
+          const label =
+            p.caption ||
+            (p.questionKey ? idx.fields.get(p.questionKey)?.label : r && t ? recordTitle(t.table, r.data) : "") ||
+            "";
+          return { id: p.id, projectId: a.projectId, src: photoUrl(a.projectId, p.id), label, inReport: p.inReport, key: p.inPortfolio };
+        }),
+    };
+  });
+  const keyPhotos = photoSites.flatMap((s) => s.photos.filter((p) => p.key).map((p) => ({ ...p, site: s.site })));
 
   const roadmapCounts = sites
     .map((s) => s.narrative?.content.roadmap ?? [])
@@ -76,10 +97,11 @@ export default async function PortfolioPage({ searchParams }: { searchParams: Pr
         </Link>
         <div className="flex flex-wrap gap-2">
           {isAiConfigured() && assessments.length >= 2 && (
-            <GenerateNarrativeButton
+            <PortfolioSummaryControls
               projectIds={ids}
               label={!n ? "Write portfolio summary" : narrative?.stale ? "Refresh summary (sites changed)" : "Rewrite summary"}
               variant={!n || narrative?.stale ? "primary" : "subtle"}
+              guidance={(narrative?.content as { guidance?: string } | undefined)?.guidance ?? ""}
             />
           )}
           <PrintButton />
@@ -154,6 +176,21 @@ export default async function PortfolioPage({ searchParams }: { searchParams: Pr
                 Use “Write portfolio summary” above for a plain-English summary, company-wide standards and a rollout order.
               </p>
             )}
+            {keyPhotos.length > 0 && (
+              <div className={cn("grid gap-3 pt-2", keyPhotos.length === 1 ? "grid-cols-1" : keyPhotos.length === 2 ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3")}>
+                {keyPhotos.map((p) => (
+                  <figure key={p.id} className="break-inside-avoid space-y-1">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={photoSrc(p.src, "md")} alt={p.label || p.site} className="aspect-[4/3] w-full rounded-xl object-cover" />
+                    <figcaption className="text-xs text-muted-foreground">
+                      <span className="font-semibold text-foreground">{p.site}</span>
+                      {p.label ? ` — ${p.label}` : ""}
+                    </figcaption>
+                  </figure>
+                ))}
+              </div>
+            )}
+            <KeyPhotoPicker sites={photoSites} count={keyPhotos.length} />
           </section>
 
           {/* Grade grid */}
@@ -287,81 +324,6 @@ export default async function PortfolioPage({ searchParams }: { searchParams: Pr
               items.
             </p>
           )}
-
-          <section className="space-y-2 break-inside-avoid">
-            <div className="flex flex-wrap items-end justify-between gap-2">
-              <h2 className="text-xl font-bold">Proposed install scope</h2>
-              {scoped.length > 0 && (
-                <div className="flex flex-wrap gap-2 print:hidden">
-                  <Link href="/discovery/catalog" className="inline-flex h-9 items-center rounded-full border border-border px-3 text-sm font-medium">
-                    Item list
-                  </Link>
-                  <a
-                    href={`/discovery/portfolio/scope.csv?ids=${ids.join(",")}`}
-                    className="inline-flex h-9 items-center rounded-full border border-border px-3 text-sm font-medium"
-                  >
-                    QuickBooks Desktop sales orders (all sites)
-                  </a>
-                </div>
-              )}
-            </div>
-            <div className="overflow-x-auto rounded-2xl border border-border bg-card">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                  <tr>
-                    <th className="px-3 py-2">Site</th>
-                    <th className="px-3 py-2 text-right">One-time</th>
-                    <th className="px-3 py-2 text-right">Yearly</th>
-                    <th className="px-3 py-2 text-right">Labor</th>
-                    <th className="px-3 py-2 text-right">Drops</th>
-                    <th className="px-3 py-2 text-right">Crew days</th>
-                    <th className="px-3 py-2 text-right">Unpriced</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {scopes.map(({ a, lines, totals: t }) => (
-                    <tr key={a.projectId}>
-                      <td className="px-3 py-2">
-                        <Link href={`/discovery/${a.projectId}/scope`} className="font-medium underline-offset-2 hover:underline">
-                          {a.site}
-                        </Link>
-                      </td>
-                      {lines.length ? (
-                        <>
-                          <td className="px-3 py-2 text-right tabular-nums">{money(t.oneTimeCents)}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">{money(t.annualCents)}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">{t.laborHours} h</td>
-                          <td className="px-3 py-2 text-right tabular-nums">{t.cablingDrops}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">~{t.crewDays}</td>
-                          <td className={cn("px-3 py-2 text-right tabular-nums", t.unpriced && "text-amber-700 dark:text-amber-400")}>{t.unpriced}</td>
-                        </>
-                      ) : (
-                        <td colSpan={6} className="px-3 py-2 text-muted-foreground">
-                          Not built yet
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-                {scoped.length > 1 && (
-                  <tfoot className="border-t-2 border-border font-semibold">
-                    <tr>
-                      <td className="px-3 py-2">All sites</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{money(sum((t) => t.oneTimeCents))}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{money(sum((t) => t.annualCents))}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{sum((t) => t.laborHours)} h</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{sum((t) => t.cablingDrops)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">~{sum((t) => t.crewDays)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{sum((t) => t.unpriced)}</td>
-                    </tr>
-                  </tfoot>
-                )}
-              </table>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              UniFi network &amp; Wi-Fi and Verkada security, sized from each walk. Prices are entered per sales order on each site’s scope; totals leave out unpriced lines. Crew days assume a two-tech crew.
-            </p>
-          </section>
 
           {/* Per-site links */}
           <section className="space-y-2 print:hidden">

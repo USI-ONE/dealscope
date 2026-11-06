@@ -198,10 +198,13 @@ export async function writeSiteNarrative(facts: string) {
   return { ...n, roadmap: n.roadmap.map((r) => enforceCost(r)) };
 }
 
-export function writePortfolioNarrative(customer: string, sitesFacts: string) {
+export function writePortfolioNarrative(customer: string, sitesFacts: string, guidance?: string) {
+  const emphasis = guidance?.trim()
+    ? `\n\nThe reviewer asked you to emphasise the following. Give it prominence in the headline, summary and common issues, using only facts from the input (never invent sites or numbers):\n${guidance.trim()}`
+    : "";
   return run(
     PORTFOLIO_SCHEMA,
     portfolioSchema,
-    `Write the multi-site portfolio summary for ${customer || "this client"} from the per-site results below. Focus on what is common across branches and on standardizing so every branch runs on the same platform and can be managed and viewed centrally. Area keys: ${AREAS.map((a) => `${a.key} = ${a.title}`).join(", ")}.\n\n${sitesFacts}`,
+    `Write the multi-site portfolio summary for ${customer || "this client"} from the per-site results below. Focus on what is common across branches and on standardizing so every branch runs on the same platform and can be managed and viewed centrally. Area keys: ${AREAS.map((a) => `${a.key} = ${a.title}`).join(", ")}.${emphasis}\n\n${sitesFacts}`,
   );
 }

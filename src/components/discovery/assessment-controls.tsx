@@ -46,6 +46,62 @@ export function GenerateNarrativeButton({
   );
 }
 
+/** Portfolio summary button plus the reviewer's "points to emphasise", kept with the summary. */
+export function PortfolioSummaryControls({
+  projectIds,
+  label,
+  variant,
+  guidance: saved,
+}: {
+  projectIds: string[];
+  label: string;
+  variant: "primary" | "subtle";
+  guidance: string;
+}) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [open, setOpen] = useState(!!saved);
+  const [guidance, setGuidance] = useState(saved);
+  return (
+    <div className="flex w-full flex-col items-end gap-2 print:hidden">
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={() => setOpen((o) => !o)} className="h-10 rounded-full border border-border bg-card px-4 text-sm font-medium">
+          {open ? "Hide emphasis" : "Points to emphasise"}
+        </button>
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() =>
+            start(async () => {
+              const r = await generatePortfolioAssessment({ projectIds, guidance: guidance.trim() || undefined });
+              if (r?.serverError) return void toast.error(r.serverError);
+              toast.success("Summary written");
+              router.refresh();
+            })
+          }
+          className={cn(
+            "inline-flex h-10 items-center gap-1.5 rounded-full px-4 text-sm font-semibold disabled:opacity-60",
+            variant === "primary" ? "bg-violet-600 text-white" : "border border-border bg-card text-foreground",
+          )}
+        >
+          {pending ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+          {pending ? "Writing… (up to a minute)" : label}
+        </button>
+      </div>
+      {open && (
+        <textarea
+          value={guidance}
+          onChange={(e) => setGuidance(e.target.value)}
+          maxLength={1500}
+          rows={3}
+          placeholder="e.g. Emphasise poor physical security and the camera systems that aren't working at several sites."
+          className="w-full max-w-xl rounded-xl border border-border bg-background p-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+        />
+      )}
+    </div>
+  );
+}
+
 /** Choose which site walks make up the portfolio; selection lives in the URL. */
 export function PortfolioPicker({
   options,

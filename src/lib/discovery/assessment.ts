@@ -306,7 +306,13 @@ export function assessSite(project: DiscoveryProject, data: ProjectData, resolve
   // ── Physical security
   const cams = records("cameras");
   if (naSections.has("cameras") && !cams.length) hit("security", "cameras", 35, "No security cameras", "Install the company-standard camera system");
-  else if (cams.some((r) => /non-functional|not working|dead/i.test(r.data.notes ?? "")))
+  else if (
+    cams.some((r) =>
+      /non-?functional|non-?operational|not operational|not working|dead|can'?t (be )?access|cannot (be )?access|inaccessible/i.test(
+        `${r.data.notes ?? ""} ${r.data.location ?? ""}`,
+      ),
+    )
+  )
     hit("security", "cameras", 35, "Security cameras are not working", "Replace the dead cameras with the company-standard system");
   else if (cams.some((r) => r.data.keep === "Replace"))
     hit("security", "cameras", 15, "Analog camera system on a standalone recorder — can't be viewed centrally", "Move cameras to the company-standard platform");

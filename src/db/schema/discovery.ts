@@ -191,6 +191,8 @@ export const discoveryPhotos = pgTable(
     takenAt: timestamp("taken_at", { withTimezone: true }),
     /** Picked by the walker to appear in the client assessment. */
     inReport: boolean("in_report").notNull().default(false),
+    /** Featured in the multi-site portfolio's executive summary. */
+    inPortfolio: boolean("in_portfolio").notNull().default(false),
 
     uploadedByMembershipId: uuid("uploaded_by_membership_id").references(
       () => memberships.id,
