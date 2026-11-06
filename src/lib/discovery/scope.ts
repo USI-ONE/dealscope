@@ -7,7 +7,7 @@
  * Findings add the rest — battery backup, cabinet, grounding, Verkada
  * cameras / door access / alarm / visitor sign-in, failover internet,
  * electrician work and PCI segmentation. What USI doesn't install (carrier
- * circuits, emergency lighting, generators) is listed as "By others".
+ * circuits, emergency lighting) is listed as "By others".
  *
  * Lines carry a stable `sourceRef` ("auto:<sku>"), so rebuilding refreshes
  * quantities without touching lines someone has edited.
@@ -67,7 +67,6 @@ export const DEFAULT_CATALOG: CatalogSeed[] = [
   { sku: "BY-CARRIER", name: "Main internet circuit repair or replacement (by carrier)", category: "By others", unit: "site" },
   { sku: "BY-CELL-PLAN", name: "Cellular data plan for failover (by carrier)", category: "By others", unit: "site" },
   { sku: "BY-EM-LIGHTING", name: "Emergency lighting (by facilities / electrician)", category: "By others", unit: "site" },
-  { sku: "BY-GENERATOR", name: "Generator / extended backup power (review with client)", category: "By others", unit: "site" },
 ];
 
 export async function ensureCatalog(organizationId: string) {
@@ -246,7 +245,6 @@ export function plannedScope(a: SiteAssessment, data: ProjectData): { lines: Pla
   if (has("power.circuit")) add("ELEC-CIRCUIT", 1, why(["power.circuit"], ""));
   if (has("power.surge")) add("ELEC-SPD", 1, why(["power.surge"], ""));
   if (has("power.lighting")) add("BY-EM-LIGHTING", 1, why(["power.lighting"], ""));
-  if (has("power.generator")) add("BY-GENERATOR", 1, why(["power.generator"], ""));
 
   // Closet
   if (has("closet.rack") || has("closet.secure")) {

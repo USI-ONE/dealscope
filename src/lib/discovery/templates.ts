@@ -67,6 +67,23 @@ export function templateIndex(template: TemplateDef): Indexes {
   return idx;
 }
 
+/**
+ * Questions still captured on the walk but left out of every report:
+ * generators (and their transfer switch, fuel and test date) aren't part
+ * of the branch IT scope.
+ */
+const REPORT_HIDDEN = new Set([
+  "mdf.generator",
+  "environmental.generator",
+  "environmental.ats",
+  "environmental.gen_test",
+  "environmental.fuel",
+  "photos.generator",
+]);
+export function inReports(questionKey: string) {
+  return !REPORT_HIDDEN.has(questionKey);
+}
+
 export function sectionFields(section: SectionDef): ResolvedField[] {
   return section.blocks.flatMap((b) =>
     b.kind === "fields"

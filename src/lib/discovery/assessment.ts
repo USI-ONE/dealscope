@@ -82,7 +82,6 @@ const EVIDENCE: Record<AreaKey, Evidence[]> = {
     { label: "Dedicated circuits", keys: ["mdf.circuits"] },
     { label: "Surge protection", keys: ["environmental.surge"] },
     { label: "Emergency lighting", keys: ["environmental.egress_lighting"], mention: { key: "mdf.lighting", re: /emergency/i } },
-    { label: "Generator", keys: ["environmental.generator", "mdf.generator"] },
   ],
   closet: [
     { label: "Closet access / lock", keys: ["mdf.room_access", "mdf.door"] },
@@ -287,7 +286,6 @@ export function assessSite(project: DiscoveryProject, data: ProjectData, resolve
   if (value("environmental.surge") === "No") hit("power", "surge", 15, "No real surge protection — only old desk-level strips", "Replace old surge strips with proper surge protection");
   if (/poor|no emergency/.test(said("environmental.egress_lighting") + said("mdf.lighting")))
     hit("power", "lighting", 15, "No emergency lighting — the office goes dark in an outage", "Arrange emergency lighting with the facilities vendor");
-  if (/none|no generator/.test(said("environmental.generator") + said("mdf.generator"))) hit("power", "generator", 5, "No generator", "Review whether generator backup is needed");
 
   // ── Network closet
   const access = value("mdf.room_access");

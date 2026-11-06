@@ -16,7 +16,7 @@ import { requireRole } from "@/lib/auth-helpers";
 import { getProject, loadProjectData, walkSiteName } from "@/lib/discovery/load";
 import { photoUrl } from "@/lib/discovery/paths";
 import { photoSrc } from "@/lib/discovery/photo-variants";
-import { answerToText, recordTitle, sectionFields, templateIndex } from "@/lib/discovery/templates";
+import { answerToText, inReports, recordTitle, sectionFields, templateIndex } from "@/lib/discovery/templates";
 import { PrintButton } from "@/components/discovery/print-button";
 
 export const dynamic = "force-dynamic";
@@ -156,7 +156,7 @@ export default async function InstallBriefPage({ params }: { params: Promise<{ i
   const openFields = template.sections
     .filter((s) => !na.has(s.key))
     .flatMap((s) => sectionFields(s).map((f) => ({ f, section: s.title })))
-    .filter(({ f }) => isOpen(f.questionKey));
+    .filter(({ f }) => inReports(f.questionKey) && isOpen(f.questionKey));
   const crewNeeds = Object.keys(CREW_NEEDS).flatMap((k) => {
     const hit = openFields.find(({ f }) => f.questionKey === k);
     return hit ? [{ ...hit, why: CREW_NEEDS[k] }] : [];

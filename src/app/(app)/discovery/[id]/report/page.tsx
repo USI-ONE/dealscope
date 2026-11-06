@@ -6,7 +6,7 @@ import { TopologySvg } from "@/components/discovery/topology-svg";
 import { photoUrl } from "@/lib/discovery/paths";
 import { requireRole } from "@/lib/auth-helpers";
 import { getProject, loadProjectData } from "@/lib/discovery/load";
-import { answerToText, sectionFields, templateIndex } from "@/lib/discovery/templates";
+import { answerToText, inReports, sectionFields, templateIndex } from "@/lib/discovery/templates";
 import { PrintButton } from "@/components/discovery/print-button";
 import { photoSrc } from "@/lib/discovery/photo-variants";
 
@@ -122,6 +122,7 @@ export default async function DiscoveryReportPage({ params }: { params: Promise<
         if (section.key === "risks") return null;
         const na = project.naSections.includes(section.key);
         const fields = sectionFields(section).filter((f) => {
+          if (!inReports(f.questionKey)) return false;
           const a = answers.get(f.questionKey);
           return answerToText(f, a) || a?.notes || photosByQuestion.get(f.questionKey)?.length;
         });
