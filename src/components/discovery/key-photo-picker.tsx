@@ -13,13 +13,13 @@ export type PickerSite = { projectId: string; site: string; photos: PickerPhoto[
 
 /**
  * Choose the photos shown in the portfolio's executive summary. Starts on
- * each site's report picks (already curated on the walk's Photos tab);
- * "All photos" opens the full walk.
+ * every photo from each walk; "Report picks only" narrows it to the
+ * photos already ticked on each walk's Photos tab.
  */
 export function KeyPhotoPicker({ sites, count }: { sites: PickerSite[]; count: number }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [all, setAll] = useState(false);
+  const [picksOnly, setPicksOnly] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [, start] = useTransition();
 
@@ -45,7 +45,7 @@ export function KeyPhotoPicker({ sites, count }: { sites: PickerSite[]; count: n
     );
 
   const shown = sites
-    .map((s) => ({ ...s, photos: all ? s.photos : s.photos.filter((p) => p.inReport || p.key) }))
+    .map((s) => ({ ...s, photos: picksOnly ? s.photos.filter((p) => p.inReport || p.key) : s.photos }))
     .filter((s) => s.photos.length);
 
   return (
@@ -54,8 +54,8 @@ export function KeyPhotoPicker({ sites, count }: { sites: PickerSite[]; count: n
         <p className="text-sm font-semibold">Tap photos to feature them in the executive summary</p>
         <div className="flex items-center gap-3 text-sm">
           <label className="flex items-center gap-1.5">
-            <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} className="size-4" />
-            All photos (not just report picks)
+            <input type="checkbox" checked={picksOnly} onChange={(e) => setPicksOnly(e.target.checked)} className="size-4" />
+            Report picks only
           </label>
           <button type="button" onClick={() => setOpen(false)} className="h-9 rounded-full bg-primary px-4 font-semibold text-primary-foreground">
             Done
@@ -63,7 +63,7 @@ export function KeyPhotoPicker({ sites, count }: { sites: PickerSite[]; count: n
         </div>
       </div>
       {!shown.length && (
-        <p className="text-sm text-muted-foreground">No report picks yet — tick “All photos” to choose from every walk photo.</p>
+        <p className="text-sm text-muted-foreground">No report picks yet — untick “Report picks only” to see every photo.</p>
       )}
       {shown.map((s) => (
         <div key={s.projectId} className="space-y-2">
