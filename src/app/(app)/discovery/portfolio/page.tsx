@@ -82,7 +82,11 @@ export default async function PortfolioPage({ searchParams }: { searchParams: Pr
         }),
     };
   });
-  const keyPhotos = photoSites.flatMap((s) => s.photos.filter((p) => p.key).map((p) => ({ ...p, site: s.site })));
+  const keyGroups = photoSites
+    .map((s) => ({ site: s.site, projectId: s.projectId, photos: s.photos.filter((p) => p.key) }))
+    .filter((g) => g.photos.length)
+    .sort((a, b) => a.site.localeCompare(b.site));
+  const keyCount = keyGroups.reduce((n, g) => n + g.photos.length, 0);
 
   const roadmapCounts = sites
     .map((s) => s.narrative?.content.roadmap ?? [])
@@ -176,21 +180,21 @@ export default async function PortfolioPage({ searchParams }: { searchParams: Pr
                 Use “Write portfolio summary” above for a plain-English summary, company-wide standards and a rollout order.
               </p>
             )}
-            {keyPhotos.length > 0 && (
-              <div className={cn("grid gap-3 pt-2", keyPhotos.length === 1 ? "grid-cols-1" : keyPhotos.length === 2 ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3")}>
-                {keyPhotos.map((p) => (
-                  <figure key={p.id} className="break-inside-avoid space-y-1">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={photoSrc(p.src, "md")} alt={p.label || p.site} className="aspect-[4/3] w-full rounded-xl object-cover" />
-                    <figcaption className="text-xs text-muted-foreground">
-                      <span className="font-semibold text-foreground">{p.site}</span>
-                      {p.label ? ` — ${p.label}` : ""}
-                    </figcaption>
-                  </figure>
-                ))}
+            {keyGroups.map((g) => (
+              <div key={g.projectId} className="break-inside-avoid space-y-2 pt-2">
+                <h3 className="text-sm font-semibold">{g.site}</h3>
+                <div className={cn("grid gap-3", g.photos.length === 1 ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-2 sm:grid-cols-3")}>
+                  {g.photos.map((p) => (
+                    <figure key={p.id} className="space-y-1">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={photoSrc(p.src, "md")} alt={p.label || g.site} className="aspect-[4/3] w-full rounded-xl object-cover" />
+                      {p.label && <figcaption className="text-xs text-muted-foreground">{p.label}</figcaption>}
+                    </figure>
+                  ))}
+                </div>
               </div>
-            )}
-            <KeyPhotoPicker sites={photoSites} count={keyPhotos.length} />
+            ))}
+            <KeyPhotoPicker sites={photoSites} count={keyCount} />
           </section>
 
           {/* Grade grid */}
