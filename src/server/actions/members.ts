@@ -34,13 +34,7 @@ import {
   sendWelcomeEmail,
 } from "@/lib/email/account";
 
-const ROLE_LABEL: Record<string, string> = {
-  owner: "Owner",
-  executive: "Executive",
-  manager: "Manager",
-  member: "Member",
-  external_diligence: "External — Diligence only",
-};
+import { ROLE_SUMMARY, roleLabel } from "@/lib/role-labels";
 
 type EmailResult = { emailed: boolean; emailError: string | null };
 
@@ -256,8 +250,10 @@ export const createUserWithPassword = authedAction
             to: email,
             name: parsedInput.name.trim(),
             inviterName: ctx.user.name ?? ctx.user.email,
+            inviterEmail: ctx.user.email,
             orgName: ctx.organization.name,
-            roleLabel: ROLE_LABEL[parsedInput.role] ?? parsedInput.role,
+            roleLabel: roleLabel(parsedInput.role),
+            roleSummary: ROLE_SUMMARY[parsedInput.role],
             link,
             expires,
           });
@@ -330,7 +326,7 @@ export const resetUserPassword = authedAction
       if (target) {
         mail = await trySend(async () => {
           const { link, expires } = await issuePasswordToken(target.email, 24 * 60 * 60 * 1000);
-          await sendPasswordResetEmail({ to: target.email, link, expires, byAdmin: ctx.user.name ?? ctx.user.email });
+          await sendPasswordResetEmail({ to: target.email, link, expires, byAdmin: ctx.user.name ?? ctx.user.email, replyTo: ctx.user.email });
         });
       }
     }

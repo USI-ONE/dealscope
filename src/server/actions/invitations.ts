@@ -3,7 +3,7 @@
 /**
  * Invitation flow:
  *  1. Owner clicks Invite → createInvitation inserts a memberInvitations row
- *     and sends an email via Microsoft Graph. The row's UUID id is the
+ *     and sends an email via Resend. The row's UUID id is the
  *     invitation token (122 bits of entropy — plenty for a single-use,
  *     time-limited admin link).
  *  2. Recipient clicks /invite/[token] → accept page renders.
@@ -22,6 +22,7 @@ import { db } from "@/db";
 import {
   memberInvitations,
   memberships,
+  organizations,
   users,
 } from "@/db/schema";
 import {
@@ -29,8 +30,8 @@ import {
   verifyPassword,
   validatePasswordStrength,
 } from "@/lib/auth-password";
-import { sendInvitationEmail } from "@/lib/email/invitations";
-import { appBaseUrl } from "@/lib/email/account";
+import { sendInvitationAcceptedEmail, sendInvitationEmail } from "@/lib/email/invitations";
+import { isEmailConfigured } from "@/lib/email/graph";
 import {
   action,
   authedAction,
@@ -49,23 +50,61 @@ const roleSchema = z.enum([
 /** How long an invitation link is valid before it stops working. */
 const INVITATION_TTL_DAYS = 14;
 
-/**
- * Resolve the base URL we should put in the invitation email.
- *
- *  - In production on Vercel, prefer AUTH_URL (set by us / Vercel).
- *  - In dev, fall back to http://localhost:3000.
- *
- * Trailing slashes are stripped by sendInvitationEmail.
- */
-function inviteBaseUrl(): string {
-  return appBaseUrl();
+
+type InviteOutcome = { email: string; status: "sent" | "email_failed" | "skipped"; detail?: string };
+
+/** Does this address already have a DealScope login (any organization)? */
+async function hasLogin(email: string) {
+  const u = await db.query.users.findFirst({
+    where: sql`lower(${users.email}) = ${email}`,
+    columns: { id: true, passwordHash: true },
+  });
+  return { user: u ?? null, existingAccount: !!u?.passwordHash };
+}
+
+/** Send (or re-send) one invitation and record the outcome on its row. */
+async function deliver(
+  inv: { id: string; email: string; role: string; note: string | null; emailSendAttemptCount: number | null },
+  expiresAt: Date,
+  ctx: { user: { name: string | null; email: string }; organization: { name: string } },
+  reminder: boolean,
+): Promise<string | null> {
+  const attempts = (inv.emailSendAttemptCount ?? 0) + 1;
+  try {
+    const { existingAccount } = await hasLogin(inv.email);
+    await sendInvitationEmail({
+      to: inv.email,
+      inviterName: ctx.user.name ?? ctx.user.email,
+      inviterEmail: ctx.user.email,
+      orgName: ctx.organization.name,
+      role: inv.role,
+      note: inv.note,
+      token: inv.id,
+      expiresAt,
+      existingAccount,
+      reminder,
+    });
+    await db
+      .update(memberInvitations)
+      .set({ expiresAt, lastEmailSentAt: new Date(), emailSendAttemptCount: attempts, lastEmailError: null, updatedAt: new Date() })
+      .where(eq(memberInvitations.id, inv.id));
+    return null;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Email failed to send";
+    console.error("[invite-email]", e);
+    await db
+      .update(memberInvitations)
+      .set({ emailSendAttemptCount: attempts, lastEmailError: msg.slice(0, 1000), updatedAt: new Date() })
+      .where(eq(memberInvitations.id, inv.id));
+    return msg;
+  }
 }
 
 /* ============================================================================
- * CREATE
+ * CREATE — one or more addresses at once
  * ========================================================================== */
 const createSchema = z.object({
-  email: z.string().email().max(200),
+  emails: z.array(z.string().trim().email().max(200)).min(1).max(50),
   role: roleSchema.default("member"),
   financeAccess: z.boolean().default(false),
   note: z.string().max(2000).optional().nullable(),
@@ -78,99 +117,59 @@ export const createInvitation = authedAction
     if (ctx.membership.role !== "owner") {
       throw new PublicError("Only owners can invite users.");
     }
-    const email = parsedInput.email.trim().toLowerCase();
+    const note = parsedInput.note?.trim() || null;
+    const emails = [...new Set(parsedInput.emails.map((e) => e.trim().toLowerCase()))];
+    const results: InviteOutcome[] = [];
 
-    // If the user already exists AND already has an active membership in
-    // this org, point the owner at the existing-member controls instead
-    // of creating a duplicate invite.
-    const existingUser = await db.query.users.findFirst({
-      where: sql`lower(${users.email}) = ${email}`,
-    });
-    if (existingUser) {
-      const existingMembership = await db.query.memberships.findFirst({
-        where: and(
-          eq(memberships.userId, existingUser.id),
-          eq(memberships.organizationId, ctx.organization.id),
-          eq(memberships.isActive, true),
-        ),
-      });
-      if (existingMembership) {
-        throw new PublicError(
-          `${email} is already a member of this organization. Use the existing-member controls instead.`,
-        );
+    for (const email of emails) {
+      // Already an active member here -> nothing to invite.
+      const { user } = await hasLogin(email);
+      if (user) {
+        const m = await db.query.memberships.findFirst({
+          where: and(eq(memberships.userId, user.id), eq(memberships.organizationId, ctx.organization.id)),
+          columns: { isActive: true },
+        });
+        if (m?.isActive) {
+          results.push({ email, status: "skipped", detail: "already a member" });
+          continue;
+        }
       }
-    }
 
-    // Soft-revoke any pending invitations for this email in this org —
-    // only one live invite per email at a time.
-    await db
-      .delete(memberInvitations)
-      .where(
-        and(
-          eq(memberInvitations.organizationId, ctx.organization.id),
-          sql`lower(${memberInvitations.email}) = ${email}`,
-          isNull(memberInvitations.consumedAt),
-        ),
-      );
-
-    const expiresAt = new Date(
-      Date.now() + INVITATION_TTL_DAYS * 24 * 60 * 60 * 1000,
-    );
-
-    const [created] = await db
-      .insert(memberInvitations)
-      .values({
-        organizationId: ctx.organization.id,
-        email,
-        role: parsedInput.role,
-        financeAccess: parsedInput.financeAccess,
-        invitedByMembershipId: ctx.membership.id,
-        expiresAt,
-        note: parsedInput.note?.trim() || null,
-      })
-      .returning();
-
-    // Send the email. Record success/failure on the row so the owner
-    // can see what's happening + retry.
-    try {
-      await sendInvitationEmail({
-        to: email,
-        inviterName: ctx.user.name ?? ctx.user.email,
-        role: parsedInput.role,
-        note: parsedInput.note?.trim() || null,
-        baseUrl: inviteBaseUrl(),
-        token: created.id,
-        expiresAt,
-      });
+      // One live invitation per address: replace any pending one.
       await db
-        .update(memberInvitations)
-        .set({
-          lastEmailSentAt: new Date(),
-          emailSendAttemptCount: 1,
-          lastEmailError: null,
-          updatedAt: new Date(),
+        .delete(memberInvitations)
+        .where(
+          and(
+            eq(memberInvitations.organizationId, ctx.organization.id),
+            sql`lower(${memberInvitations.email}) = ${email}`,
+            isNull(memberInvitations.consumedAt),
+          ),
+        );
+
+      const expiresAt = new Date(Date.now() + INVITATION_TTL_DAYS * 24 * 60 * 60 * 1000);
+      const [created] = await db
+        .insert(memberInvitations)
+        .values({
+          organizationId: ctx.organization.id,
+          email,
+          role: parsedInput.role,
+          financeAccess: parsedInput.financeAccess,
+          invitedByMembershipId: ctx.membership.id,
+          expiresAt,
+          note,
         })
-        .where(eq(memberInvitations.id, created.id));
-    } catch (e) {
-      await db
-        .update(memberInvitations)
-        .set({
-          emailSendAttemptCount: 1,
-          lastEmailError: (e as Error).message.slice(0, 1000),
-          updatedAt: new Date(),
-        })
-        .where(eq(memberInvitations.id, created.id));
-      throw new PublicError(
-        `Invitation was saved but the email failed to send: ${(e as Error).message}. Use Resend on the row to try again.`,
-      );
+        .returning();
+
+      const err = await deliver(created, expiresAt, ctx, false);
+      results.push(err ? { email, status: "email_failed", detail: err } : { email, status: "sent" });
     }
 
     revalidatePath("/settings/members");
-    return { ok: true, id: created.id, email };
+    return { ok: true, results };
   });
 
 /* ============================================================================
- * RESEND
+ * RESEND — also renews the expiry, so an expired invite can be revived
  * ========================================================================== */
 export const resendInvitation = authedAction
   .schema(z.object({ invitationId: z.string().uuid() }))
@@ -189,47 +188,11 @@ export const resendInvitation = authedAction
     if (inv.consumedAt) {
       throw new PublicError("That invitation has already been accepted.");
     }
-    // Extend the expiry on resend so a stale invitation can be revived.
-    const expiresAt = new Date(
-      Date.now() + INVITATION_TTL_DAYS * 24 * 60 * 60 * 1000,
-    );
-
-    try {
-      await sendInvitationEmail({
-        to: inv.email,
-        inviterName: ctx.user.name ?? ctx.user.email,
-        role: inv.role,
-        note: inv.note ?? null,
-        baseUrl: inviteBaseUrl(),
-        token: inv.id,
-        expiresAt,
-      });
-      await db
-        .update(memberInvitations)
-        .set({
-          expiresAt,
-          lastEmailSentAt: new Date(),
-          emailSendAttemptCount: (inv.emailSendAttemptCount ?? 0) + 1,
-          lastEmailError: null,
-          updatedAt: new Date(),
-        })
-        .where(eq(memberInvitations.id, inv.id));
-    } catch (e) {
-      await db
-        .update(memberInvitations)
-        .set({
-          emailSendAttemptCount: (inv.emailSendAttemptCount ?? 0) + 1,
-          lastEmailError: (e as Error).message.slice(0, 1000),
-          updatedAt: new Date(),
-        })
-        .where(eq(memberInvitations.id, inv.id));
-      throw new PublicError(
-        `Resend failed: ${(e as Error).message}`,
-      );
-    }
-
+    const expiresAt = new Date(Date.now() + INVITATION_TTL_DAYS * 24 * 60 * 60 * 1000);
+    const err = await deliver(inv, expiresAt, ctx, !!inv.lastEmailSentAt);
     revalidatePath("/settings/members");
-    return { ok: true };
+    if (err) throw new PublicError(`Email failed to send: ${err}. Use “Copy link” to share it another way.`);
+    return { ok: true, expiresAt };
   });
 
 /* ============================================================================
@@ -259,8 +222,9 @@ export const revokeInvitation = authedAction
  * ========================================================================== */
 const acceptSchema = z.object({
   token: z.string().uuid(),
-  name: z.string().min(1).max(200),
-  password: z.string().min(12).max(200),
+  /** Required for new accounts; ignored when the person already has one. */
+  name: z.string().max(200).optional().default(""),
+  password: z.string().min(1).max(200),
 });
 
 export const acceptInvitation = action
@@ -281,23 +245,27 @@ export const acceptInvitation = action
       );
     }
 
-    const policyError = validatePasswordStrength(parsedInput.password);
-    if (policyError) throw new PublicError(policyError);
-
     const email = inv.email.trim().toLowerCase();
-    const passwordHash = await hashPassword(parsedInput.password);
-
-    // Find or create the user. Update password + name on the way through.
-    let userId: string;
     const existing = await db.query.users.findFirst({
       where: sql`lower(${users.email}) = ${email}`,
     });
+
+    // New logins must meet the password policy and give a name; existing
+    // logins only prove who they are with their current password.
+    if (!existing?.passwordHash) {
+      if (!parsedInput.name.trim()) throw new PublicError("Please enter your name.");
+      const policyError = validatePasswordStrength(parsedInput.password);
+      if (policyError) throw new PublicError(policyError);
+    }
+    const passwordHash = existing?.passwordHash ? "" : await hashPassword(parsedInput.password);
+
+    let userId: string;
     if (existing?.passwordHash) {
       // Already has an account: the invite link alone must not be able to
       // replace their password. They prove it's them with the current one.
       if (!(await verifyPassword(parsedInput.password, existing.passwordHash))) {
         throw new PublicError(
-          "You already have a DealScope account with this email. Enter your existing password to accept the invitation (or use “Forgot password” on the sign-in page).",
+          "That isn't the password for this DealScope account. Try again, or use “Forgot password” on the sign-in page.",
         );
       }
       userId = existing.id;
@@ -368,5 +336,33 @@ export const acceptInvitation = action
       })
       .where(eq(memberInvitations.id, inv.id));
 
-    return { ok: true, email };
+    // Tell the inviter (best effort — never blocks the acceptance).
+    if (isEmailConfigured() && inv.invitedByMembershipId) {
+      try {
+        const [inviter] = await db
+          .select({ email: users.email, name: users.name })
+          .from(memberships)
+          .innerJoin(users, eq(memberships.userId, users.id))
+          .where(eq(memberships.id, inv.invitedByMembershipId));
+        const org = await db.query.organizations.findFirst({
+          where: eq(organizations.id, inv.organizationId),
+          columns: { name: true },
+        });
+        const me = await db.query.users.findFirst({ where: eq(users.id, userId), columns: { name: true } });
+        if (inviter && inviter.email.toLowerCase() !== email) {
+          await sendInvitationAcceptedEmail({
+            to: inviter.email,
+            inviterName: inviter.name,
+            memberName: me?.name ?? "",
+            memberEmail: email,
+            orgName: org?.name ?? "DealScope",
+            role: inv.role,
+          });
+        }
+      } catch (e) {
+        console.error("[invite-accepted-email]", e);
+      }
+    }
+
+    return { ok: true, email, existingAccount: !!existing?.passwordHash };
   });

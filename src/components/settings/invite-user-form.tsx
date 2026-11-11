@@ -2,175 +2,182 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Mail, Save, X } from "lucide-react";
+import { Mail, Send, X } from "lucide-react";
 import { toast } from "sonner";
 import { createInvitation } from "@/server/actions/invitations";
+import { ROLE_LABEL, ROLE_ORDER, ROLE_SUMMARY, type RoleKey } from "@/lib/role-labels";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-type Role =
-  | "owner"
-  | "executive"
-  | "manager"
-  | "member"
-  | "external_diligence";
+const EMAIL_RE = /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/;
 
-const ROLE_DESCRIPTIONS: Record<Role, string> = {
-  owner: "Full access. Can create users, change roles, and manage everything.",
-  executive: "Read access across the platform; finance access by default.",
-  manager:
-    "Can add and edit operational data (clients, hardware, services). Finance access optional.",
-  member: "View-only access by default. Finance access optional.",
-  external_diligence:
-    "External guest. Can ONLY see and use the Diligence section.",
-};
+/** Pull addresses out of whatever was pasted: commas, semicolons, new
+ *  lines, or "Name <a@b.com>" lists copied from Outlook. */
+function parseEmails(raw: string) {
+  const parts = raw
+    .split(/[\s,;]+/)
+    .map((p) => p.replace(/^.*</, "").replace(/>.*$/, "").replace(/^mailto:/i, "").trim().toLowerCase())
+    .filter(Boolean);
+  const valid = [...new Set(parts.filter((p) => EMAIL_RE.test(p)))];
+  const invalid = parts.filter((p) => !EMAIL_RE.test(p) && p.includes("@"));
+  return { valid, invalid };
+}
 
 export function InviteUserForm() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
-  const [email, setEmail] = useState("");
-  const [role, setRole] = useState<Role>("member");
+  const [raw, setRaw] = useState("");
+  const [role, setRole] = useState<RoleKey>("member");
   const [financeAccess, setFinanceAccess] = useState(false);
   const [note, setNote] = useState("");
 
-  const reset = () => {
-    setEmail("");
+  const { valid, invalid } = parseEmails(raw);
+  const financeIncluded = role === "owner" || role === "executive";
+
+  const close = () => {
+    setRaw("");
     setRole("member");
     setFinanceAccess(false);
     setNote("");
+    setOpen(false);
   };
 
   const submit = () => {
-    if (!email.trim()) return toast.error("Email is required");
+    if (!valid.length) return toast.error("Enter at least one email address");
+    if (invalid.length) return toast.error(`Check these addresses: ${invalid.join(", ")}`);
     start(async () => {
       const r = await createInvitation({
-        email: email.trim(),
+        emails: valid,
         role,
-        financeAccess,
+        financeAccess: financeIncluded ? false : financeAccess,
         note: note.trim() || null,
       });
-      if (r?.serverError) {
-        toast.error(r.serverError);
-        return;
-      }
-      toast.success(`Invitation sent to ${email.trim()}`);
-      reset();
-      setOpen(false);
+      if (r?.serverError) return void toast.error(r.serverError);
+      const results = r?.data?.results ?? [];
+      const sent = results.filter((x) => x.status === "sent");
+      const failed = results.filter((x) => x.status === "email_failed");
+      const skipped = results.filter((x) => x.status === "skipped");
+      if (sent.length)
+        toast.success(
+          sent.length === 1 ? `Invitation sent to ${sent[0].email}` : `${sent.length} invitations sent`,
+        );
+      if (failed.length)
+        toast.error(
+          `Saved but not emailed: ${failed.map((f) => f.email).join(", ")}. Use “Copy link” or “Resend” under Pending invitations.`,
+          { duration: 10000 },
+        );
+      if (skipped.length)
+        toast.info(`Already members, skipped: ${skipped.map((s) => s.email).join(", ")}`);
+      close();
       router.refresh();
     });
   };
 
   if (!open) {
     return (
-      <Button onClick={() => setOpen(true)} variant="outline">
-        <Mail className="mr-1 size-3.5" /> Invite by email
+      <Button onClick={() => setOpen(true)}>
+        <Mail className="mr-1 size-3.5" /> Invite people
       </Button>
     );
   }
 
   return (
-    <Card className="border-primary/40">
+    <Card className="w-full border-primary/40 sm:w-[32rem]">
       <CardContent className="space-y-4 p-4">
-        <div className="flex items-start justify-between gap-3 max-sm:flex-wrap">
-          <h3 className="text-sm font-bold uppercase tracking-wider">
-            Invite user by email
-          </h3>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => {
-              reset();
-              setOpen(false);
-            }}
-            disabled={pending}
-            aria-label="Close"
-          >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-bold uppercase tracking-wider">Invite people</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Each person gets an email with their own link. They choose their own
+              password, and the link expires in 14 days. Replies to the email come to you.
+            </p>
+          </div>
+          <Button variant="ghost" size="icon" onClick={close} disabled={pending} aria-label="Close">
             <X className="size-4" />
           </Button>
         </div>
 
-        <p className="text-xs text-muted-foreground">
-          Sends an email with a single-use link to the address below. The
-          recipient sets their own password and the account + membership
-          is created when they accept. Link expires in 14 days.
-        </p>
+        <div>
+          <Label htmlFor="invite-emails">Email addresses</Label>
+          <Textarea
+            id="invite-emails"
+            rows={3}
+            value={raw}
+            onChange={(e) => setRaw(e.target.value)}
+            autoFocus
+            placeholder={"name@example.com\nanother@example.com"}
+          />
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            One or more — separate with commas or new lines.
+            {valid.length > 1 && <strong className="text-foreground"> {valid.length} people.</strong>}
+            {invalid.length > 0 && (
+              <span className="text-destructive"> Not valid: {invalid.join(", ")}</span>
+            )}
+          </p>
+        </div>
 
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className="md:col-span-2">
-            <Label>Email</Label>
-            <Input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoFocus
-              placeholder="name@example.com"
-            />
-          </div>
+        <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <Label>Role</Label>
+            <Label htmlFor="invite-role">Role</Label>
             <select
+              id="invite-role"
               value={role}
-              onChange={(e) => setRole(e.target.value as Role)}
+              onChange={(e) => setRole(e.target.value as RoleKey)}
               className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
             >
-              <option value="external_diligence">
-                External — Diligence only
-              </option>
-              <option value="member">Member (view-only)</option>
-              <option value="manager">Manager (can add / edit)</option>
-              <option value="executive">Executive</option>
-              <option value="owner">Owner</option>
+              {ROLE_ORDER.map((r) => (
+                <option key={r} value={r}>
+                  {ROLE_LABEL[r]}
+                </option>
+              ))}
             </select>
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              {ROLE_DESCRIPTIONS[role]}
-            </p>
+            <p className="mt-1 text-[11px] text-muted-foreground">{ROLE_SUMMARY[role]}</p>
           </div>
-          <div>
-            <Label>Finance access</Label>
-            <label className="mt-2 flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={financeAccess}
-                onChange={(e) => setFinanceAccess(e.target.checked)}
-              />
-              Grant finance access (vendor bills, billables, cost basis)
-            </label>
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              Owners + executives always have finance access. This flag
-              applies to manager and member tiers only.
-            </p>
-          </div>
+          {role !== "external_diligence" && (
+            <div>
+              <Label>Finance access</Label>
+              <label className="mt-2 flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={financeIncluded || financeAccess}
+                  disabled={financeIncluded}
+                  onChange={(e) => setFinanceAccess(e.target.checked)}
+                />
+                Billing and cost figures
+              </label>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                {financeIncluded ? "Included with this role." : "Off unless you tick it."}
+              </p>
+            </div>
+          )}
         </div>
 
         <div>
-          <Label>Note (optional)</Label>
+          <Label htmlFor="invite-note">Personal note (optional)</Label>
           <Textarea
+            id="invite-note"
             rows={2}
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="A short note that will appear in the invitation email."
+            placeholder="e.g. You'll be helping on the West Termite site walks."
           />
+          <p className="mt-1 text-[11px] text-muted-foreground">Shown in the invitation email.</p>
         </div>
 
         <div className="flex justify-end gap-2 pt-1">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              reset();
-              setOpen(false);
-            }}
-            disabled={pending}
-          >
+          <Button variant="outline" size="sm" onClick={close} disabled={pending}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={pending}>
-            <Save className="mr-1 size-3.5" />
-            {pending ? "Sending…" : "Send invitation"}
+          <Button onClick={submit} disabled={pending || !valid.length}>
+            <Send className="mr-1 size-3.5" />
+            {pending
+              ? "Sending…"
+              : valid.length > 1
+                ? `Send ${valid.length} invitations`
+                : "Send invitation"}
           </Button>
         </div>
       </CardContent>

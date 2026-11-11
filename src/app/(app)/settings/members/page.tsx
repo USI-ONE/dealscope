@@ -3,6 +3,7 @@ import { Users } from "lucide-react";
 import { db } from "@/db";
 import { memberInvitations, memberships, users } from "@/db/schema";
 import { requireContext } from "@/lib/auth-helpers";
+import { appBaseUrl } from "@/lib/email/account";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CreateUserForm } from "@/components/settings/create-user-form";
 import { InviteUserForm } from "@/components/settings/invite-user-form";
@@ -62,9 +63,7 @@ export default async function MembersPage() {
 
   // Resolve the base URL the same way the server action does so the
   // "Copy link" button produces a URL that actually works.
-  const baseUrl =
-    process.env.AUTH_URL?.trim() ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+  const baseUrl = appBaseUrl();
 
   // The invitation id is the accept-link token — only owners (who manage
   // invites) receive it; everyone else gets an opaque placeholder.
@@ -93,10 +92,10 @@ export default async function MembersPage() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Members</h1>
             <p className="text-muted-foreground">
-              DealScope uses standalone email + password authentication. Owners
-              create accounts here and share credentials with the user
-              out-of-band. Users can change their own password from{" "}
-              <strong>Settings → Account</strong>.
+              Invite people by email: each person gets their own link and
+              chooses their own password. Use <strong>Add user</strong> only
+              when you need to create the account yourself. Anyone can change
+              their password from <strong>Settings → Account</strong>.
             </p>
           </div>
         </div>
@@ -122,22 +121,24 @@ export default async function MembersPage() {
         </Card>
       )}
 
+      {invitations.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+            Pending invitations · {invitations.length}
+          </h2>
+          <PendingInvitationsTable invitations={invitations} isOwner={isOwner} />
+        </section>
+      )}
+
       <section className="space-y-2">
         <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
-          Active members
+          Active members · {activeMembers.length}
         </h2>
         <MembersTable
           members={activeMembers}
           currentMembershipId={ctx.membership.id}
           isOwner={isOwner}
         />
-      </section>
-
-      <section className="space-y-2">
-        <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
-          Pending invitations
-        </h2>
-        <PendingInvitationsTable invitations={invitations} isOwner={isOwner} />
       </section>
 
       {deactivatedMembers.length > 0 && (

@@ -15,9 +15,38 @@ export type EmailMessage = {
   to: string;
   toName?: string;
   cc?: string[];
+  /** Where replies go — usually the person who triggered the email, since
+   *  the sender address is a no-reply mailbox. */
+  replyTo?: string | null;
   subject: string;
   htmlBody: string;
+  /** Plain-text part. Derived from the HTML when omitted (helps delivery). */
+  textBody?: string;
 };
+
+/** Rough plain-text rendering of an email's HTML for the text/plain part. */
+export function htmlToText(html: string): string {
+  return html
+    .replace(/<head[\s\S]*?<\/head>/gi, "")
+    .replace(/<a [^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi, (_m, href: string, label: string) => {
+      const l = label.replace(/<[^>]+>/g, "").trim();
+      return l && l !== href ? `${l}: ${href}` : href;
+    })
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|h1|h2|li|tr)>/gi, "\n")
+    .replace(/<li[^>]*>/gi, "• ")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/[ \t]+/g, " ")
+    .replace(/ *\n */g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
 
 export async function sendEmail(msg: EmailMessage): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
@@ -36,10 +65,12 @@ export async function sendEmail(msg: EmailMessage): Promise<void> {
     },
     body: JSON.stringify({
       from: `DealScope <${fromEmail}>`,
-      to: [msg.to],
+      to: [msg.toName ? `${msg.toName.replace(/[<>",]/g, "")} <${msg.to}>` : msg.to],
       cc: msg.cc ?? [],
+      ...(msg.replyTo ? { reply_to: [msg.replyTo] } : {}),
       subject: msg.subject,
       html: msg.htmlBody,
+      text: msg.textBody ?? htmlToText(msg.htmlBody),
     }),
   });
 

@@ -8,6 +8,7 @@ import {
   resendInvitation,
   revokeInvitation,
 } from "@/server/actions/invitations";
+import { roleLabel } from "@/lib/role-labels";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -30,14 +31,6 @@ export type PendingInvitationRow = {
   note: string | null;
   /** Origin used to build the invitation copy link in the browser. */
   baseUrl: string;
-};
-
-const ROLE_LABEL: Record<PendingInvitationRow["role"], string> = {
-  owner: "Owner",
-  executive: "Executive",
-  manager: "Manager",
-  member: "Member",
-  external_diligence: "External (Diligence)",
 };
 
 const fmt = (d: Date | string | null) =>
@@ -64,9 +57,11 @@ export function PendingInvitationsTable({
   const resend = (id: string) => {
     start(async () => {
       const r = await resendInvitation({ invitationId: id });
-      if (r?.serverError) toast.error(r.serverError);
-      else {
-        toast.success("Invitation re-sent");
+      if (r?.serverError) {
+        toast.error(r.serverError, { duration: 10000 });
+        router.refresh();
+      } else {
+        toast.success("Invitation re-sent — the link is good for another 14 days");
         router.refresh();
       }
     });
@@ -87,8 +82,10 @@ export function PendingInvitationsTable({
 
   const copyLink = (id: string, baseUrl: string) => {
     const link = `${baseUrl.replace(/\/$/, "")}/invite/${id}`;
-    navigator.clipboard.writeText(link);
-    toast.success("Invitation link copied to clipboard");
+    navigator.clipboard.writeText(link).then(
+      () => toast.success("Link copied — send it to them directly (Teams, text, etc.)"),
+      () => toast.error("Couldn't copy. Your browser blocked clipboard access."),
+    );
   };
 
   if (invitations.length === 0) {
@@ -128,7 +125,7 @@ export function PendingInvitationsTable({
                 </td>
                 <td data-label="Role" className="px-3 py-2">
                   <Badge variant="outline" className="text-[10px] uppercase">
-                    {ROLE_LABEL[inv.role]}
+                    {roleLabel(inv.role)}
                   </Badge>
                 </td>
                 <td data-label="Finance" className="px-3 py-2 text-[11px] text-muted-foreground">
@@ -154,8 +151,17 @@ export function PendingInvitationsTable({
                 </td>
                 <td data-label="Status" className="px-3 py-2">
                   {inv.lastEmailError ? (
-                    <Badge variant="destructive" className="text-[10px]" title={inv.lastEmailError}>
-                      Send failed
+                    <div className="max-w-56 space-y-1">
+                      <Badge variant="destructive" className="text-[10px]">
+                        Email not delivered
+                      </Badge>
+                      <p className="line-clamp-2 text-[11px] text-muted-foreground" title={inv.lastEmailError}>
+                        {inv.lastEmailError.replace(/^Resend sendEmail failed \(\d+\): /, "")}
+                      </p>
+                    </div>
+                  ) : !inv.lastEmailSentAt ? (
+                    <Badge variant="outline" className="text-[10px]">
+                      Not sent
                     </Badge>
                   ) : expired ? (
                     <Badge variant="outline" className="text-[10px] text-destructive">
@@ -183,9 +189,9 @@ export function PendingInvitationsTable({
                         size="sm"
                         onClick={() => resend(inv.id)}
                         disabled={pending}
-                        title="Re-send the invitation email"
+                        title="Email the invitation again and give it another 14 days"
                       >
-                        <RotateCw className="mr-1 size-3.5" /> Resend
+                        <RotateCw className="mr-1 size-3.5" /> {expired ? "Renew & resend" : "Resend"}
                       </Button>
                       <Button
                         variant="ghost"

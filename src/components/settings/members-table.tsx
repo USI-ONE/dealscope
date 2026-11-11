@@ -10,6 +10,7 @@ import {
   updateMembershipFinanceAccess,
   updateMembershipRole,
 } from "@/server/actions/members";
+import { ROLE_LABEL, ROLE_ORDER, roleLabel } from "@/lib/role-labels";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -150,15 +151,15 @@ function MemberTableRow({
             onChange={(e) => onRole(e.target.value as Role)}
             className="h-8 rounded-md border border-input bg-background px-2 text-xs"
           >
-            <option value="owner">Owner</option>
-            <option value="executive">Executive</option>
-            <option value="manager">Manager</option>
-            <option value="member">Member</option>
-            <option value="external_diligence">External — Diligence only</option>
+            {ROLE_ORDER.map((r) => (
+              <option key={r} value={r}>
+                {ROLE_LABEL[r]}
+              </option>
+            ))}
           </select>
         ) : (
           <Badge variant="outline" className="text-[10px] uppercase">
-            {member.role}
+            {roleLabel(member.role)}
           </Badge>
         )}
       </td>

@@ -83,35 +83,50 @@ export async function sendWelcomeEmail(opts: {
   to: string;
   name: string;
   inviterName: string;
+  inviterEmail?: string | null;
   orgName: string;
   roleLabel: string;
+  roleSummary?: string;
   link: string;
   expires: Date;
 }) {
+  const base = appBaseUrl();
   const body = `
     <p style="margin:0 0 12px 0;">Hi ${escapeHtml(opts.name)},</p>
     <p style="margin:0 0 12px 0;"><strong>${escapeHtml(opts.inviterName)}</strong> created a DealScope account for you
-      in <strong>${escapeHtml(opts.orgName)}</strong> as a <strong>${escapeHtml(opts.roleLabel)}</strong>.</p>
-    <p style="margin:0;">Choose your password to finish setting up. You'll sign in with <strong>${escapeHtml(opts.to)}</strong>.</p>`;
+      in <strong>${escapeHtml(opts.orgName)}</strong> as ${/^[AEIOU]/i.test(opts.roleLabel) ? "an" : "a"} <strong>${escapeHtml(opts.roleLabel)}</strong>.</p>
+    ${opts.roleSummary ? `<p style="margin:0 0 12px 0;font-size:13px;color:#555;">${escapeHtml(opts.roleSummary)}</p>` : ""}
+    <p style="margin:0;">Choose your password to finish setting up, then sign in at
+      <a href="${escapeHtml(base)}/sign-in" style="color:#458C5E;">${escapeHtml(base.replace(/^https?:\/\//, ""))}</a>
+      with <strong>${escapeHtml(opts.to)}</strong>.</p>`;
   await sendEmail({
     to: opts.to,
     toName: opts.name,
-    subject: `${opts.inviterName} set up your DealScope account`,
+    replyTo: opts.inviterEmail,
+    subject: `${opts.inviterName} set up your ${opts.orgName} account on DealScope`,
     htmlBody: emailLayout(
       "Welcome to DealScope",
       body,
       { label: "Set your password", href: opts.link },
-      `This link works once and expires ${escapeHtml(fmt(opts.expires))}. After that, use “Forgot password” on the sign-in page.`,
+      `This link works once and expires ${escapeHtml(fmt(opts.expires))}. After that, use “Forgot password” on the sign-in page. Questions? Reply to this email to reach ${escapeHtml(opts.inviterName)}.`,
     ),
   });
 }
 
-export async function sendPasswordResetEmail(opts: { to: string; link: string; expires: Date; byAdmin?: string }) {
+export async function sendPasswordResetEmail(opts: {
+  to: string;
+  link: string;
+  expires: Date;
+  byAdmin?: string;
+  /** Replies go here (the admin who reset it). */
+  replyTo?: string | null;
+}) {
   const body = opts.byAdmin
     ? `<p style="margin:0;"><strong>${escapeHtml(opts.byAdmin)}</strong> reset the password on your DealScope account (<strong>${escapeHtml(opts.to)}</strong>). Choose a new one to sign in.</p>`
     : `<p style="margin:0;">Someone requested a password reset for your DealScope account (<strong>${escapeHtml(opts.to)}</strong>).</p>`;
   await sendEmail({
     to: opts.to,
+    replyTo: opts.replyTo,
     subject: "Reset your DealScope password",
     htmlBody: emailLayout(
       "Choose a new password",

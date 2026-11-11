@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Copy, Plus, Save, X } from "lucide-react";
 import { toast } from "sonner";
 import { createUserWithPassword } from "@/server/actions/members";
+import { ROLE_LABEL, ROLE_ORDER, ROLE_SUMMARY } from "@/lib/role-labels";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -18,15 +19,7 @@ type Role =
   | "member"
   | "external_diligence";
 
-const ROLE_DESCRIPTIONS: Record<Role, string> = {
-  owner: "Full access. Can create users, change roles, and manage everything.",
-  executive: "Read access across the platform; finance access by default.",
-  manager:
-    "Can add and edit operational data (clients, hardware, services). Finance access optional.",
-  member: "View-only access by default. Finance access optional.",
-  external_diligence:
-    "External guest. Can ONLY see and use the Diligence section.",
-};
+const ROLE_DESCRIPTIONS = ROLE_SUMMARY;
 
 export function CreateUserForm() {
   const router = useRouter();
@@ -191,7 +184,7 @@ export function CreateUserForm() {
 
   if (!open) {
     return (
-      <Button onClick={() => setOpen(true)}>
+      <Button variant="outline" onClick={() => setOpen(true)}>
         <Plus className="mr-1 size-3.5" /> Add user
       </Button>
     );
@@ -219,10 +212,10 @@ export function CreateUserForm() {
         </div>
 
         <p className="text-xs text-muted-foreground">
-          Creates the user record + a membership in this org. The password
-          is hashed with bcrypt — what you set here is the only time the
-          plaintext exists; the user can change it from{" "}
-          <strong>Settings → Account</strong> after sign-in.
+          Creates the account right away. Prefer <strong>Invite people</strong>{" "}
+          unless you need to hand over a login yourself. With the welcome email
+          on, they get a link to choose their own password; the temporary
+          password below is only for sharing in person.
         </p>
 
         <div className="grid gap-3 md:grid-cols-2">
@@ -249,13 +242,11 @@ export function CreateUserForm() {
               onChange={(e) => setRole(e.target.value as Role)}
               className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
             >
-              <option value="external_diligence">
-                External — Diligence only
-              </option>
-              <option value="member">Member (view-only)</option>
-              <option value="manager">Manager (can add / edit)</option>
-              <option value="executive">Executive</option>
-              <option value="owner">Owner</option>
+              {ROLE_ORDER.map((r) => (
+                <option key={r} value={r}>
+                  {ROLE_LABEL[r]}
+                </option>
+              ))}
             </select>
             <p className="mt-1 text-[11px] text-muted-foreground">
               {ROLE_DESCRIPTIONS[role]}
@@ -269,7 +260,7 @@ export function CreateUserForm() {
                 checked={financeAccess}
                 onChange={(e) => setFinanceAccess(e.target.checked)}
               />
-              Grant finance access (vendor bills, billables, cost basis)
+              Billing and cost figures
             </label>
             <p className="mt-1 text-[11px] text-muted-foreground">
               Owners + executives always have finance access. This flag
