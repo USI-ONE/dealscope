@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Camera, ChevronRight, Copy, Plus, Search, Trash2, Upload, X } from "lucide-react";
 import { imageFiles, useFinePointer } from "@/lib/discovery/client/input-mode";
-import { recordSubtitle, recordTitle } from "@/lib/discovery/templates";
+import { orderRecords, recordSubtitle, recordTitle } from "@/lib/discovery/templates";
 import type { TableDef } from "@/lib/discovery/types";
 import { cn } from "@/lib/utils";
 import { CameraSheet } from "./camera-sheet";
@@ -100,10 +100,13 @@ export function RecordList({
       byId.set(p.recordId, { id: p.recordId, data: p.data, sortOrder: p.sortOrder ?? byId.get(p.recordId)?.sortOrder ?? 0 });
     }
     for (const r of Object.values(local)) byId.set(r.id, r);
-    return [...byId.values()]
-      .filter((r) => !outbox.isRecordDeleted(r.id))
-      .sort((a, b) => a.sortOrder - b.sortOrder);
-  }, [serverRows, outbox, projectId, table.key, local]);
+    return orderRecords(
+      table,
+      [...byId.values()]
+        .filter((r) => !outbox.isRecordDeleted(r.id))
+        .sort((a, b) => a.sortOrder - b.sortOrder),
+    );
+  }, [serverRows, outbox, projectId, table, local]);
 
   const filtered = query.trim()
     ? rows.filter((r) => Object.values(r.data).join(" ").toLowerCase().includes(query.trim().toLowerCase()))

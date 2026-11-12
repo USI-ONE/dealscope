@@ -6,7 +6,7 @@ import { TopologySvg } from "@/components/discovery/topology-svg";
 import { photoUrl } from "@/lib/discovery/paths";
 import { requireRole } from "@/lib/auth-helpers";
 import { getProject, loadProjectData } from "@/lib/discovery/load";
-import { answerToText, inReports, sectionFields, templateIndex } from "@/lib/discovery/templates";
+import { answerToText, inReports, orderRecords, sectionFields, templateIndex } from "@/lib/discovery/templates";
 import { PrintButton } from "@/components/discovery/print-button";
 import { photoSrc } from "@/lib/discovery/photo-variants";
 
@@ -137,7 +137,7 @@ export default async function DiscoveryReportPage({ params }: { params: Promise<
             </h2>
             {!na &&
               tables.map((t) => {
-                const rows = recordRows.filter((r) => r.tableKey === t.key);
+                const rows = orderRecords(t, recordRows.filter((r) => r.tableKey === t.key));
                 if (!rows.length) return null;
                 const cols = t.columns.filter((c) => rows.some((r) => r.data[c.key]));
                 return (

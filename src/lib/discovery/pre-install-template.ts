@@ -132,6 +132,7 @@ const facility: SectionDef = {
         ],
         titleKeys: ["space"],
         subtitleKeys: ["ceiling", "deck_ft"],
+        sortByTitle: true,
         presets: [
           "Front lobby / reception",
           "Open bullpen",

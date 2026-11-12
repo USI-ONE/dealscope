@@ -179,6 +179,19 @@ export function recordTitle(table: TableDef, data: Record<string, string>): stri
   return parts.length ? parts.join(" · ") : `Untitled ${table.singular.toLowerCase()}`;
 }
 
+/** Rows in display order: A–Z by title for tables that ask for it
+ *  (natural order, so "Office 2" comes before "Office 10"; untitled rows
+ *  last), otherwise unchanged. */
+export function orderRecords<T extends { data: Record<string, string> }>(table: TableDef, rows: T[]): T[] {
+  if (!table.sortByTitle) return rows;
+  const key = (r: T) => table.titleKeys.map((k) => r.data[k]?.trim() ?? "").filter(Boolean).join(" ");
+  return [...rows].sort((a, b) => {
+    const ka = key(a), kb = key(b);
+    if (!ka || !kb) return ka ? -1 : kb ? 1 : 0;
+    return ka.localeCompare(kb, undefined, { numeric: true, sensitivity: "base" });
+  });
+}
+
 export function recordSubtitle(table: TableDef, data: Record<string, string>): string {
   return table.subtitleKeys
     .map((k) => {

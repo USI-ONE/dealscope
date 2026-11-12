@@ -60,6 +60,8 @@ export type TableDef = {
   subtitleKeys: string[];
   /** One-tap starter rows (values for the first title column). */
   presets?: string[];
+  /** List rows A–Z by title instead of the order they were added. */
+  sortByTitle?: boolean;
   /** Worked example shown as placeholders on a new record. */
   example?: Record<string, string>;
 };

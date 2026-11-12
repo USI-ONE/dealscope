@@ -8,7 +8,7 @@
 import ExcelJS from "exceljs";
 import { requireRole } from "@/lib/auth-helpers";
 import { getProject, loadProjectData } from "@/lib/discovery/load";
-import { answerToText, recordTitle, templateIndex } from "@/lib/discovery/templates";
+import { answerToText, orderRecords, recordTitle, templateIndex } from "@/lib/discovery/templates";
 import { photoUrl } from "@/lib/discovery/paths";
 
 export const dynamic = "force-dynamic";
@@ -82,7 +82,7 @@ export async function GET(req: Request, ctxArg: { params: Promise<{ id: string }
         ws.addRow([]);
       } else {
         const t = block.table;
-        const rows = recordRows.filter((r) => r.tableKey === t.key);
+        const rows = orderRecords(t, recordRows.filter((r) => r.tableKey === t.key));
         ws.addRow([`${t.title} (${rows.length})`]).font = { bold: true, size: 12 };
         header(ws, ws.addRow(["#", ...t.columns.map((c) => (c.unit ? `${c.label} (${c.unit})` : c.label)), "Photos"]));
         rows.forEach((r, i) => {
