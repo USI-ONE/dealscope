@@ -8,10 +8,20 @@
  * record collapse into the queued op in place, so ordering guarantees
  * like "record exists before its photos register" hold.
  *
- * Failure policy: thrown errors (offline, flaky network, redirects) are
- * transient — retried with backoff, never dropped. A structured server
- * error counts an attempt; after MAX_ATTEMPTS the op is dropped and
- * surfaced. Auth errors pause the queue until the user signs back in.
+ * Failure policy: thrown errors (offline, flaky network, redirects,
+ * stalled uploads) are transient — retried with backoff. A structured
+ * server error counts an attempt; after MAX_ATTEMPTS the op is *parked*:
+ * kept on the phone, skipped until the walker taps retry. Nothing the
+ * walker captured is ever deleted because it failed to sync. Auth errors
+ * pause the queue until the user signs back in.
+ *
+ * Edits (answers / records) sync before photos so a slow photo backlog
+ * never holds up the walk's data.
+ *
+ * Durability: every op is written to IndexedDB before it is sent. If a
+ * write fails (iOS drops the connection when Safari is backgrounded), the
+ * store reconnects and retries; ops that still aren't on disk are counted
+ * as `unsavedCount`, retried on every resume, and flagged loudly in the UI.
  */
 import {
   createContext,
@@ -38,6 +48,7 @@ import {
   loadAll,
   nextSeq,
   putOp,
+  requestPersistentStorage,
   type AnswerPayload,
   type OutboxOp,
   type PhotoTarget,
@@ -61,6 +72,10 @@ type OutboxContext = {
   authPaused: boolean;
   pendingCount: number;
   pendingPhotoCount: number;
+  /** Queued items that are only in memory (not yet on the phone's disk). */
+  unsavedCount: number;
+  /** Items that kept failing and wait for a manual retry. */
+  parkedCount: number;
   isPending: (key: string) => boolean;
   pendingAnswer: (projectId: string, questionKey: string) => AnswerPayload | undefined;
   pendingRecords: (projectId: string, tableKey: string) => RecordPayload[];
@@ -100,7 +115,10 @@ export function DiscoveryOutboxProvider({ children }: { children: React.ReactNod
   const [authPaused, setAuthPaused] = useState(false);
   const [photos, setPhotos] = useState<Record<string, LocalPhoto>>({});
   const [deleted, setDeleted] = useState<Set<string>>(new Set());
+  /** False only when the browser has no IndexedDB at all. */
   const persist = useRef(true);
+  const unsaved = useRef(new Set<string>());
+  const [unsavedCount, setUnsavedCount] = useState(0);
   const running = useRef(false);
   const inflight = useRef<string | null>(null);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -113,15 +131,22 @@ export function DiscoveryOutboxProvider({ children }: { children: React.ReactNod
   }, []);
 
   const save = useCallback(async (op: OutboxOp) => {
-    if (!persist.current) return;
-    try {
-      await putOp(op);
-    } catch {
-      persist.current = false; // storage full / private mode — keep in memory
+    if (persist.current) {
+      try {
+        await putOp(op);
+        unsaved.current.delete(op.id);
+      } catch (e) {
+        console.error("[outbox] couldn't save to this device", e);
+        unsaved.current.add(op.id);
+      }
+    } else {
+      unsaved.current.add(op.id);
     }
+    setUnsavedCount(unsaved.current.size);
   }, []);
 
   const remove = useCallback(async (id: string) => {
+    if (unsaved.current.delete(id)) setUnsavedCount(unsaved.current.size);
     if (!persist.current) return;
     try {
       await deleteOp(id);
@@ -129,6 +154,17 @@ export function DiscoveryOutboxProvider({ children }: { children: React.ReactNod
       /* ignore */
     }
   }, []);
+
+  /** Retry the disk write for anything that is only held in memory. */
+  const resaveUnsaved = useCallback(async () => {
+    if (!persist.current || !unsaved.current.size) return;
+    for (const id of [...unsaved.current]) {
+      const op = opsRef.current.find((o) => o.id === id);
+      if (!op) unsaved.current.delete(id);
+      else await save(op);
+    }
+    setUnsavedCount(unsaved.current.size);
+  }, [save]);
 
   const scheduleRefresh = useCallback(() => {
     if (refreshTimer.current) clearTimeout(refreshTimer.current);
@@ -158,12 +194,22 @@ export function DiscoveryOutboxProvider({ children }: { children: React.ReactNod
           if (!p.uploaded) {
             setPhotoStatus(p.photoId, "uploading");
             const ext = p.mimeType === "image/png" ? "png" : p.mimeType.startsWith("image/heic") ? "heic" : "jpg";
-            const res = await upload(`${p.pathPrefix}${p.photoId}.${ext}`, op.blob, {
-              access: "private",
-              handleUploadUrl: "/api/discovery/upload",
-              clientPayload: JSON.stringify({ projectId: p.projectId }),
-              contentType: p.mimeType,
-            });
+            // A stalled upload on weak signal must not block the queue
+            // forever: give up after a generous time (≥20 KB/s) and retry.
+            const abort = new AbortController();
+            const timer = setTimeout(() => abort.abort(), Math.max(90_000, (p.sizeBytes / 20_000) * 1000));
+            let res: Awaited<ReturnType<typeof upload>>;
+            try {
+              res = await upload(`${p.pathPrefix}${p.photoId}.${ext}`, op.blob, {
+                access: "private",
+                handleUploadUrl: "/api/discovery/upload",
+                clientPayload: JSON.stringify({ projectId: p.projectId }),
+                contentType: p.mimeType,
+                abortSignal: abort.signal,
+              });
+            } finally {
+              clearTimeout(timer);
+            }
             p.uploaded = { url: res.url, pathname: res.pathname };
             await save(op); // don't re-upload if registration fails
           }
@@ -207,27 +253,41 @@ export function DiscoveryOutboxProvider({ children }: { children: React.ReactNod
     running.current = true;
     setSyncing(true);
     let didWork = false;
+    // Edits first, then photos; parked items wait for a manual retry.
+    const nextOp = () =>
+      opsRef.current.find((o) => !o.parked && o.kind !== "photo") ?? opsRef.current.find((o) => !o.parked);
     try {
-      while (opsRef.current.length) {
-        const op = opsRef.current[0];
+      await resaveUnsaved();
+      let op: OutboxOp | undefined;
+      while ((op = nextOp())) {
         inflight.current = op.id;
         const { result, message } = await execute(op);
         inflight.current = null;
-        if (result === "ok" || result === "failed") {
-          if (result === "failed") {
-            op.attempts += 1;
-            if (op.attempts < MAX_ATTEMPTS) {
-              // Rotate to the back so one bad op doesn't block the queue.
-              const rotated = { ...op, seq: nextSeq() } as OutboxOp;
-              commit([...opsRef.current.filter((o) => o.id !== op.id), rotated]);
-              await save(rotated);
-              continue;
-            }
-            toast.error(`Couldn't sync a change: ${message ?? "unknown error"}`);
+        if (result === "failed") {
+          const current = op;
+          const attempts = current.attempts + 1;
+          if (attempts < MAX_ATTEMPTS) {
+            // Rotate to the back so one bad op doesn't block the queue.
+            const rotated = { ...current, attempts, seq: nextSeq() } as OutboxOp;
+            commit([...opsRef.current.filter((o) => o.id !== current.id), rotated]);
+            await save(rotated);
+            continue;
           }
-          await remove(op.id);
-          commit(opsRef.current.filter((o) => o.id !== op.id));
-          if (op.kind === "photo") setPhotoStatus(op.payload.photoId, "done");
+          // Keep it on the phone; the walker can retry from the sync bar.
+          const parked = { ...current, attempts, parked: true } as OutboxOp;
+          commit(opsRef.current.map((o) => (o.id === current.id ? parked : o)));
+          await save(parked);
+          toast.error(
+            `Couldn't sync a ${current.kind === "photo" ? "photo" : "change"}: ${message ?? "unknown error"}. It's kept on this phone — tap the sync bar to retry.`,
+            { duration: 10_000 },
+          );
+          continue;
+        }
+        if (result === "ok") {
+          const done = op;
+          await remove(done.id);
+          commit(opsRef.current.filter((o) => o.id !== done.id));
+          if (done.kind === "photo") setPhotoStatus(done.payload.photoId, "done");
           didWork = true;
           backoff.current = 2_000;
           setAuthPaused(false);
@@ -245,7 +305,7 @@ export function DiscoveryOutboxProvider({ children }: { children: React.ReactNod
       setSyncing(false);
       if (didWork) scheduleRefresh();
     }
-  }, [commit, execute, remove, save, scheduleRefresh, setPhotoStatus]);
+  }, [commit, execute, remove, resaveUnsaved, save, scheduleRefresh, setPhotoStatus]);
 
   // Boot: load persisted ops, wire connectivity events.
   useEffect(() => {
@@ -254,10 +314,12 @@ export function DiscoveryOutboxProvider({ children }: { children: React.ReactNod
     (async () => {
       let loaded: OutboxOp[] = [];
       if (isIdbAvailable()) {
+        void requestPersistentStorage();
         try {
           loaded = await loadAll();
-        } catch {
-          persist.current = false;
+        } catch (e) {
+          // Reads failed even after reconnecting; keep trying to write.
+          console.error("[outbox] couldn't read this device's queue", e);
         }
       } else {
         persist.current = false;
@@ -288,7 +350,9 @@ export function DiscoveryOutboxProvider({ children }: { children: React.ReactNod
     };
     const goOffline = () => setOnline(false);
     const onVisible = () => {
-      if (document.visibilityState === "visible") void run();
+      // Coming back from the camera / lock screen: re-persist anything that
+      // missed the disk while the connection was down, then sync.
+      if (document.visibilityState === "visible") void resaveUnsaved().then(() => run());
     };
     window.addEventListener("online", goOnline);
     window.addEventListener("offline", goOffline);
@@ -304,16 +368,16 @@ export function DiscoveryOutboxProvider({ children }: { children: React.ReactNod
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Warn before closing the tab with unsynced work.
+  // Warn before closing the tab while work exists only in memory.
   useEffect(() => {
-    if (!ops.length) return;
+    if (!unsavedCount) return;
     const handler = (e: BeforeUnloadEvent) => {
-      if (persist.current) return; // safely on disk
       e.preventDefault();
+      e.returnValue = "";
     };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
-  }, [ops.length]);
+  }, [unsavedCount]);
 
   /** Collapse into a queued op with the same key, or append a new one. */
   const upsertOp = useCallback(
@@ -450,6 +514,8 @@ export function DiscoveryOutboxProvider({ children }: { children: React.ReactNod
       authPaused,
       pendingCount: ops.length,
       pendingPhotoCount: ops.filter((o) => o.kind === "photo").length,
+      unsavedCount,
+      parkedCount: ops.filter((o) => o.parked).length,
       isPending: (key) => keys.has(key),
       pendingAnswer: (projectId, questionKey) => {
         const op = ops.find((o) => o.kind === "answer" && o.key === `answer:${projectId}:${questionKey}`);
@@ -472,11 +538,18 @@ export function DiscoveryOutboxProvider({ children }: { children: React.ReactNod
           .sort((a, b) => a.takenAt.localeCompare(b.takenAt)),
       forgetLocalPhotos,
       flush: () => {
+        // Manual retry also releases parked items.
+        if (opsRef.current.some((o) => o.parked)) {
+          const ids = new Set(opsRef.current.filter((o) => o.parked).map((o) => o.id));
+          const next = opsRef.current.map((o) => (ids.has(o.id) ? ({ ...o, parked: false, attempts: 0 } as OutboxOp) : o));
+          commit(next);
+          for (const o of next) if (ids.has(o.id)) void save(o);
+        }
         backoff.current = 2_000;
         void run();
       },
     };
-  }, [ops, ready, online, syncing, authPaused, deleted, photos, saveAnswer, saveRecord, removeRecord, addPhotos, forgetLocalPhotos, run]);
+  }, [ops, ready, online, syncing, authPaused, deleted, photos, unsavedCount, saveAnswer, saveRecord, removeRecord, addPhotos, forgetLocalPhotos, run, commit, save]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

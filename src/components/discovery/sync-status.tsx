@@ -1,6 +1,6 @@
 "use client";
 
-import { CloudOff, Loader2, LogIn, RefreshCw } from "lucide-react";
+import { AlertTriangle, CloudOff, Loader2, LogIn, RefreshCw } from "lucide-react";
 import { useOutbox } from "./outbox-provider";
 
 /**
@@ -8,7 +8,8 @@ import { useOutbox } from "./outbox-provider";
  * the walker exactly what's waiting and why.
  */
 export function SyncStatus() {
-  const { ready, online, syncing, authPaused, pendingCount, pendingPhotoCount, flush } = useOutbox();
+  const { ready, online, syncing, authPaused, pendingCount, pendingPhotoCount, unsavedCount, parkedCount, flush } =
+    useOutbox();
   if (!ready || pendingCount === 0) return null;
 
   const what =
@@ -27,9 +28,20 @@ export function SyncStatus() {
     icon = <LogIn className="size-4" />;
     label = `Sign in again to sync ${what}`;
     tone = "bg-rose-600 text-white";
+  } else if (!syncing && parkedCount > 0) {
+    icon = <AlertTriangle className="size-4" />;
+    label = `${parkedCount} couldn't sync · kept on this phone · tap to retry`;
+    tone = "bg-rose-600 text-white";
   } else if (!syncing) {
     icon = <RefreshCw className="size-4" />;
     label = `${what} waiting · tap to retry`;
+  }
+  // Highest priority: something exists only in memory. Closing or
+  // refreshing the page now would lose it.
+  if (unsavedCount > 0) {
+    icon = <AlertTriangle className="size-4" />;
+    label = `${unsavedCount} not saved on this phone yet · keep this page open`;
+    tone = "bg-rose-600 text-white";
   }
 
   return (

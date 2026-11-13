@@ -5,7 +5,9 @@
  * Re-encoding also strips EXIF, so GPS coordinates embedded by the
  * camera never leave the device.
  */
-const MAX_EDGE = 4096;
+// 3072px keeps detail for labels and serial plates while cutting upload
+// size roughly in half versus 4096px on weak site signal.
+const MAX_EDGE = 3072;
 const QUALITY = 0.88;
 
 export type ProcessedImage = { blob: Blob; width?: number; height?: number; mimeType: string };
